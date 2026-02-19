@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>AI-powered student dropout risk assessment for educators</strong><br/>
-  Built for <a href="#">Nexora Hacks 2026</a> · EdTech & AI Track
+  Built for <a href="#">DevDash 2026 Hackathon</a> · EdTech & AI Track
 </p>
 
 <p align="center">
