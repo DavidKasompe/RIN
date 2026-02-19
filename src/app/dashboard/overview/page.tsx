@@ -1,300 +1,152 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { People, Chart2, Warning2, DocumentText } from 'iconsax-reactjs';
+import StatCard from '@/components/dashboard/StatCard';
+import RiskBadge from '@/components/dashboard/RiskBadge';
 import Link from 'next/link';
 import {
-  Card,
-  RadarChart,
-} from '@/components/shared';
-import {
-  getAnalyses,
-  computeStats,
-  aggregateFactors,
-  aggregateRadarData,
-  timeAgo,
-  type StoredAnalysis,
-} from '@/lib/analysisStore';
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  ScatterChart, Scatter, ZAxis,
+} from 'recharts';
+
+type Student = {
+  id: string; name: string; grade: string; attendanceRate: number; gpa: number;
+  assignmentCompletion: number; behaviorReferrals: number; lateSubmissions: number;
+  lastRiskScore?: number | null; lastRiskCategory?: string | null;
+};
 
 export default function OverviewPage() {
-  const [analyses, setAnalyses] = useState<StoredAnalysis[]>([]);
-  const [mounted, setMounted] = useState(false);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setAnalyses(getAnalyses());
-    setMounted(true);
+    fetch('/api/students')
+      .then(r => r.json())
+      .then(data => { setStudents(data); setLoading(false); });
   }, []);
 
-  const stats = computeStats(analyses);
-  const factors = aggregateFactors(analyses);
-  const radarData = aggregateRadarData(analyses);
-  const recentAnalyses = analyses.slice(0, 5);
+  if (loading) return <div style={{ textAlign: 'center' as const, padding: 64, fontFamily: 'Inter, system-ui, sans-serif', color: 'rgba(35,6,3,0.4)' }}>Loading analytics...</div>;
 
-  const statCards = [
-    { label: 'Total Analyzed', value: stats.total.toString(), icon: '/image-icon/vecteezy_icon-business-3d-statistics-for-web-app-infographic_8525600.png', trend: `+${stats.thisWeekTotal} this week` },
-    { label: 'At Risk', value: stats.atRisk.toString(), icon: '/image-icon/vecteezy_3d-yellow-lightning-bolt-icon-with-glossy-finish-isolated_72951498.png', trend: `${stats.thisWeekAtRisk} flagged this week` },
-    { label: 'Avg Confidence', value: stats.avgConfidence > 0 ? `${stats.avgConfidence}%` : '—', icon: '/image-icon/vecteezy_business-goal-3d-icon-illustration-or-business-target-3d_32851403.png', trend: stats.total > 0 ? 'Across all analyses' : 'No data yet' },
-    { label: 'Analyses Today', value: analyses.filter(a => a.timestamp > Date.now() - 86400000).length.toString(), icon: '/image-icon/vecteezy_3d-clipboard-icon-for-business-isolated-on-clean-background_47308238.png', trend: 'Last 24 hours' },
+  if (students.length === 0) return (
+    <div style={{ textAlign: 'center' as const, padding: 64, fontFamily: 'Inter, system-ui, sans-serif', color: 'rgba(35,6,3,0.4)' }}>
+      <p>No students yet. <Link href="/dashboard/students" style={{ color: '#800532' }}>Add students</Link> to see analytics.</p>
+    </div>
+  );
+
+  const total = students.length;
+  const critical = students.filter(s => s.lastRiskCategory === 'Critical').length;
+  const atRisk = students.filter(s => s.lastRiskCategory === 'At Risk').length;
+  const avgGpa = (students.reduce((a, s) => a + s.gpa, 0) / total).toFixed(1);
+  const avgAttendance = Math.round(students.reduce((a, s) => a + s.attendanceRate, 0) / total);
+
+  const riskDist = [
+    { category: 'Critical', count: critical, fill: '#7C0D0D' },
+    { category: 'At Risk', count: atRisk, fill: '#C0392B' },
+    { category: 'Moderate', count: students.filter(s => s.lastRiskCategory === 'Moderate').length, fill: '#E67E22' },
+    { category: 'Low', count: students.filter(s => s.lastRiskCategory === 'Low' || !s.lastRiskCategory).length, fill: '#27AE60' },
   ];
 
-  // Extract student name from the query (first few words or fallback)
-  const extractName = (analysis: StoredAnalysis) => {
-    const q = analysis.query;
-    // Try to find a name pattern like "Analyze Sarah Johnson"
-    const nameMatch = q.match(/(?:analyze|assess|evaluate|review)\s+(\w+(?:\s+\w+)?)/i);
-    if (nameMatch) return nameMatch[1];
-    // Fallback: use first 20 chars of query
-    return q.length > 25 ? q.slice(0, 22) + '...' : q;
-  };
+  const scatterData = students.map(s => ({
+    attendance: s.attendanceRate, gpa: s.gpa, name: s.name,
+    fill: s.lastRiskCategory === 'Critical' ? '#7C0D0D' : s.lastRiskCategory === 'At Risk' ? '#C0392B' : s.lastRiskCategory === 'Moderate' ? '#E67E22' : '#27AE60',
+  }));
 
-  const getCategoryBadge = (category: string) => {
-    switch (category) {
-      case 'Critical Risk': return { bg: 'bg-red-200 text-red-900', label: '🔴 Critical' };
-      case 'At Risk': return { bg: 'bg-red-100 text-red-700', label: '⚠️ At Risk' };
-      case 'Moderate Risk': return { bg: 'bg-amber-100 text-amber-700', label: '🟡 Moderate' };
-      default: return { bg: 'bg-green-100 text-green-700', label: '✅ Low' };
-    }
-  };
+  const riskTrend = [...students]
+    .filter(s => s.lastRiskScore != null)
+    .sort((a, b) => (b.lastRiskScore ?? 0) - (a.lastRiskScore ?? 0))
+    .slice(0, 8)
+    .map(s => ({ name: s.name.split(' ')[0], risk: s.lastRiskScore! }));
 
-  if (!mounted) {
-    return (
-      <div className="animate-fade-in flex items-center justify-center min-h-[400px]">
-        <div className="flex gap-1.5">
-          <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-          <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-          <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-        </div>
-      </div>
-    );
-  }
+  const atRiskStudents = students
+    .filter(s => (s.lastRiskScore ?? 0) >= 60)
+    .sort((a, b) => (b.lastRiskScore ?? 0) - (a.lastRiskScore ?? 0));
+
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: { name: string; value: number }[] }) => {
+    if (!active || !payload?.length) return null;
+    return <div style={{ backgroundColor: 'white', border: '1px solid rgba(35,6,3,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 12, fontFamily: 'Inter, system-ui, sans-serif' }}>{payload.map((p, i) => <div key={i}><b>{p.name}</b>: {p.value}</div>)}</div>;
+  };
 
   return (
-    <div className="animate-fade-in">
-      {/* Header */}
-      <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-[var(--color-text)] mb-1 flex items-center gap-2">
-          Overview <img src="/image-icon/vecteezy_icon-business-3d-statistics-for-web-app-infographic_8525600.png" alt="" style={{ width: '36px', height: '36px', objectFit: 'contain', display: 'inline-block' }} />
-        </h1>
-        <p className="text-sm sm:text-base text-[var(--color-text-light)]">
-          {analyses.length > 0
-            ? `Showing insights from ${analyses.length} student ${analyses.length === 1 ? 'analysis' : 'analyses'}.`
-            : 'No analyses yet — go to the chat to analyze your first student.'}
-        </p>
+    <div style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#230603', margin: 0, letterSpacing: '-0.8px' }}>Overview</h1>
+        <p style={{ fontSize: 14, color: 'rgba(35,6,3,0.45)', margin: '4px 0 0' }}>Analytics across {total} students</p>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
-        {statCards.map((stat, i) => (
-          <Card key={i} variant="gradient" hover>
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs sm:text-sm text-[var(--color-text-light)] mb-1">{stat.label}</p>
-                <p className="text-xl sm:text-2xl font-bold text-[var(--color-text)]">{stat.value}</p>
-                <p className="text-[10px] sm:text-xs text-[var(--color-primary)] mt-1">{stat.trend}</p>
-              </div>
-              <img src={stat.icon} alt={stat.label} style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
-            </div>
-          </Card>
-        ))}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>
+        <StatCard label="Total Students" value={total} sub="in roster" IconComponent={People} />
+        <StatCard label="At Risk / Critical" value={critical + atRisk} sub="need attention" IconComponent={Warning2} accentColor="#C0392B" trend={critical > 0 ? 'down' : 'flat'} trendLabel={critical > 0 ? `${critical} critical` : 'Stable'} />
+        <StatCard label="Average GPA" value={avgGpa} sub="/ 4.0" IconComponent={DocumentText} accentColor="#2980B9" />
+        <StatCard label="Avg Attendance" value={`${avgAttendance}%`} IconComponent={Chart2} accentColor="#27AE60" trend={avgAttendance < 80 ? 'down' : 'up'} trendLabel={avgAttendance < 80 ? 'Below 80%' : 'Healthy'} />
       </div>
 
-      {/* Radar + Factors */}
-      {analyses.length > 0 && (
-        <div className="mb-6 sm:mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-            {/* Radar Chart */}
-            <Card className="p-4 sm:p-6">
-              <h2 className="text-sm sm:text-base font-semibold text-[var(--color-text)] mb-3 sm:mb-4">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><img src="/image-icon/vecteezy_minimalist-magnifying-glass-icon-with-blue-handle-3d-render_58144752.png" alt="" style={{ width: '22px', height: '22px', objectFit: 'contain' }} /> Multi-Dimensional View</span>
-              </h2>
-              <div className="flex justify-center">
-                <RadarChart
-                  data={radarData}
-                  color="var(--color-chart-blue)"
-                />
-              </div>
-              <p className="text-[10px] text-center text-[var(--color-text-light)] mt-3">
-                Aggregated across {analyses.length} {analyses.length === 1 ? 'analysis' : 'analyses'}
-              </p>
-            </Card>
-
-            {/* Contributing Factors */}
-            <Card className="p-4 sm:p-6">
-              <h2 className="text-sm sm:text-base font-semibold text-[var(--color-text)] mb-3 sm:mb-4">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><img src="/image-icon/vecteezy_leadership-for-successful-new-idea-excellent-business-graph_8879458.png" alt="" style={{ width: '22px', height: '22px', objectFit: 'contain' }} /> Top Contributing Factors</span>
-              </h2>
-              {factors.length > 0 ? (
-                <div className="space-y-3">
-                  {factors.map((factor, i) => (
-                    <div key={i} className="group">
-                      <div className="flex justify-between items-center mb-1.5">
-                        <span className="text-xs sm:text-sm font-medium text-[var(--color-text)]">
-                          {factor.name}
-                        </span>
-                        <span className={`text-xs font-medium ${
-                          factor.direction === 'negative' ? 'text-red-500' :
-                          factor.direction === 'positive' ? 'text-green-500' : 'text-gray-500'
-                        }`}>
-                          {factor.direction === 'negative' ? '−' : factor.direction === 'positive' ? '+' : '○'} {factor.impact}%
-                        </span>
-                      </div>
-                      <div className="w-full h-6 bg-gray-100 rounded-lg overflow-hidden relative">
-                        <div
-                          className={`h-full rounded-lg transition-all duration-500 ${
-                            factor.direction === 'negative' ? 'bg-gradient-to-r from-red-400 to-red-500' :
-                            factor.direction === 'positive' ? 'bg-gradient-to-r from-green-400 to-green-500' :
-                            'bg-gradient-to-r from-gray-300 to-gray-400'
-                          }`}
-                          style={{ width: `${factor.impact}%` }}
-                        />
-                        <div className="absolute inset-0 flex items-center px-2">
-                          <span className="text-[10px] text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {factor.description}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-[var(--color-text-light)] text-center py-8">
-                  Factors will appear after your first analysis.
-                </p>
-              )}
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* Empty state for charts */}
-      {analyses.length === 0 && (
-        <Card className="mb-6 sm:mb-8 p-8 sm:p-12 text-center">
-          <div className="mb-4"><img src="/image-icon/vecteezy_minimalist-magnifying-glass-icon-with-blue-handle-3d-render_58144752.png" alt="" style={{ width: '64px', height: '64px', objectFit: 'contain', margin: '0 auto' }} /></div>
-          <h3 className="text-lg font-semibold text-[var(--color-text)] mb-2">No analyses yet</h3>
-          <p className="text-sm text-[var(--color-text-light)] mb-6 max-w-md mx-auto">
-            Start analyzing students in the chat to see risk breakdowns, contributing factors, and multi-dimensional insights here.
-          </p>
-          <Link href="/dashboard">
-            <button className="px-6 py-2.5 bg-[var(--color-primary)] text-white text-sm font-medium rounded-full hover:opacity-90 transition-opacity active:scale-95">
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><img src="/image-icon/vecteezy_dramatic-classic-a-brain-human-medically-accurate-high_59623516.png" alt="" style={{ width: '20px', height: '20px', objectFit: 'contain' }} /> Start Analyzing</span>
-            </button>
-          </Link>
-        </Card>
-      )}
-
-      {/* Recent Analyses */}
-      <Card variant="gradient" className="mb-6 sm:mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm sm:text-lg font-semibold text-[var(--color-text)]">
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><img src="/image-icon/vecteezy_3d-clipboard-icon-for-business-isolated-on-clean-background_47308238.png" alt="" style={{ width: '22px', height: '22px', objectFit: 'contain' }} /> Recent Analyses</span>
-          </h2>
-          {analyses.length > 5 && (
-            <span className="text-xs sm:text-sm text-[var(--color-text-light)]">
-              Showing latest 5 of {analyses.length}
-            </span>
-          )}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+        <div style={{ backgroundColor: 'white', borderRadius: 14, border: '1px solid rgba(35,6,3,0.07)', padding: '24px' }}>
+          <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700, color: '#230603', letterSpacing: '-0.3px' }}>Risk Distribution</h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={riskDist} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(35,6,3,0.06)" />
+              <XAxis dataKey="category" tick={{ fontSize: 12, fill: 'rgba(35,6,3,0.5)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: 'rgba(35,6,3,0.4)' }} axisLine={false} tickLine={false} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(35,6,3,0.03)' }} />
+              <Bar dataKey="count" name="Students" radius={[6, 6, 0, 0]} fill="#800532" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
 
-        {recentAnalyses.length > 0 ? (
-          <div className="space-y-3 sm:space-y-4">
-            {recentAnalyses.map((analysis) => {
-              const badge = getCategoryBadge(analysis.category);
-              return (
-                <div
-                  key={analysis.id}
-                  className="flex items-center justify-between p-3 sm:p-4 rounded-xl bg-white/50 hover:bg-white transition-colors"
-                >
-                  <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                    <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white font-bold text-xs sm:text-sm flex-shrink-0 ${
-                      analysis.riskScore >= 70 ? 'bg-gradient-to-br from-red-500 to-red-600' :
-                      analysis.riskScore >= 40 ? 'bg-gradient-to-br from-amber-500 to-amber-600' :
-                      'bg-gradient-to-br from-green-500 to-green-600'
-                    }`}>
-                      {analysis.riskScore}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm sm:text-base font-medium text-[var(--color-text)] truncate">
-                        {extractName(analysis)}
-                      </p>
-                      <p className="text-xs sm:text-sm text-[var(--color-text-light)]">
-                        {timeAgo(analysis.timestamp)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-                    <div className="text-right">
-                      <p className="text-xs sm:text-sm font-medium text-[var(--color-text)]">
-                        {analysis.confidence}%
-                      </p>
-                      <span className={`inline-block px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-medium rounded-full ${badge.bg}`}>
-                        {badge.label}
-                      </span>
-                    </div>
-                    <Link
-                      href="/dashboard"
-                      className="p-1.5 sm:p-2 rounded-lg hover:bg-[var(--color-card)] transition-colors"
-                    >
-                      <svg className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--color-text-light)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-sm text-[var(--color-text-light)] text-center py-6">
-            Your analyzed students will appear here.
-          </p>
-        )}
-      </Card>
+        <div style={{ backgroundColor: 'white', borderRadius: 14, border: '1px solid rgba(35,6,3,0.07)', padding: '24px' }}>
+          <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700, color: '#230603', letterSpacing: '-0.3px' }}>Highest Risk Scores</h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={riskTrend} layout="vertical" margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(35,6,3,0.06)" horizontal={false} />
+              <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: 'rgba(35,6,3,0.4)' }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: 'rgba(35,6,3,0.55)' }} axisLine={false} tickLine={false} width={56} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(35,6,3,0.03)' }} />
+              <Bar dataKey="risk" name="Risk Score" fill="#800532" radius={[0, 6, 6, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
 
-      {/* Risk Distribution Summary */}
-      {analyses.length >= 3 && (
-        <Card className="mb-6 sm:mb-8 p-4 sm:p-6">
-          <h2 className="text-sm sm:text-base font-semibold text-[var(--color-text)] mb-4">
-            📈 Risk Distribution
-          </h2>
-          <div className="grid grid-cols-4 gap-2 sm:gap-4">
-            {[
-              { label: 'Low', color: 'bg-green-500', count: analyses.filter(a => a.category === 'Low Risk').length },
-              { label: 'Moderate', color: 'bg-amber-500', count: analyses.filter(a => a.category === 'Moderate Risk').length },
-              { label: 'At Risk', color: 'bg-red-500', count: analyses.filter(a => a.category === 'At Risk').length },
-              { label: 'Critical', color: 'bg-red-800', count: analyses.filter(a => a.category === 'Critical Risk').length },
-            ].map((bucket) => (
-              <div key={bucket.label} className="text-center">
-                <div className="relative w-full h-24 sm:h-32 bg-gray-100 rounded-lg overflow-hidden flex items-end">
-                  <div
-                    className={`w-full ${bucket.color} rounded-t-md transition-all duration-700`}
-                    style={{
-                      height: analyses.length > 0 ? `${Math.max(8, (bucket.count / analyses.length) * 100)}%` : '8%',
-                    }}
-                  />
+      <div style={{ backgroundColor: 'white', borderRadius: 14, border: '1px solid rgba(35,6,3,0.07)', padding: '24px', marginBottom: 20 }}>
+        <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700, color: '#230603', letterSpacing: '-0.3px' }}>Attendance vs GPA</h3>
+        <ResponsiveContainer width="100%" height={220}>
+          <ScatterChart margin={{ top: 0, right: 16, left: -20, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(35,6,3,0.06)" />
+            <XAxis type="number" dataKey="attendance" name="Attendance" domain={[40, 100]} unit="%" tick={{ fontSize: 11 }} label={{ value: 'Attendance %', position: 'insideBottom', offset: -8, fontSize: 11, fill: 'rgba(35,6,3,0.4)' }} />
+            <YAxis type="number" dataKey="gpa" name="GPA" domain={[0, 4.5]} tick={{ fontSize: 11 }} label={{ value: 'GPA', angle: -90, position: 'insideLeft', fontSize: 11, fill: 'rgba(35,6,3,0.4)' }} />
+            <ZAxis range={[60, 60]} />
+            <Tooltip cursor={{ strokeDasharray: '3 3' }} content={({ active, payload }) => {
+              if (!active || !payload?.length) return null;
+              const d = payload[0].payload;
+              return <div style={{ backgroundColor: 'white', border: '1px solid rgba(35,6,3,0.1)', borderRadius: 8, padding: '10px 14px', fontSize: 12, fontFamily: 'Inter' }}><b>{d.name}</b><br />Attendance: {d.attendance}%<br />GPA: {d.gpa}</div>;
+            }} />
+            <Scatter data={scatterData} fill="#800532" opacity={0.7} />
+          </ScatterChart>
+        </ResponsiveContainer>
+      </div>
+
+      {atRiskStudents.length > 0 && (
+        <div style={{ backgroundColor: 'white', borderRadius: 14, border: '1px solid rgba(192,57,43,0.15)', padding: '24px' }}>
+          <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: '#230603', letterSpacing: '-0.3px' }}>Students Needing Attention ({atRiskStudents.length})</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {atRiskStudents.map(s => (
+              <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderRadius: 10, backgroundColor: 'rgba(250,243,236,0.6)', border: '1px solid rgba(35,6,3,0.05)' }}>
+                <div>
+                  <Link href={`/dashboard/students/${s.id}`} style={{ fontSize: 14, fontWeight: 600, color: '#230603', textDecoration: 'none' }}>{s.name}</Link>
+                  <span style={{ fontSize: 12, color: 'rgba(35,6,3,0.4)', marginLeft: 10 }}>Grade {s.grade}</span>
                 </div>
-                <p className="text-xs sm:text-sm font-medium text-[var(--color-text)] mt-2">{bucket.count}</p>
-                <p className="text-[10px] sm:text-xs text-[var(--color-text-light)]">{bucket.label}</p>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, color: 'rgba(35,6,3,0.45)' }}>Att: {s.attendanceRate}% · GPA: {s.gpa}</span>
+                  <RiskBadge category={s.lastRiskCategory ?? 'Low'} score={s.lastRiskScore ?? undefined} />
+                  <Link href={`/dashboard?studentId=${s.id}`} style={{ padding: '4px 12px', backgroundColor: 'rgba(128,5,50,0.08)', borderRadius: 7, fontSize: 12, fontWeight: 600, color: '#800532', textDecoration: 'none' }}>Analyze</Link>
+                </div>
               </div>
             ))}
           </div>
-        </Card>
-      )}
-
-      {/* Ethical Disclaimer */}
-      <Card variant="glass">
-        <div className="flex items-start gap-3 sm:gap-4">
-          <span className="text-xl sm:text-2xl">ℹ️</span>
-          <div>
-            <h3 className="font-semibold text-[var(--color-text)] mb-1 text-sm sm:text-base">
-              Responsible AI Commitment
-            </h3>
-            <p className="text-xs sm:text-sm text-[var(--color-text-light)]">
-              RIN&apos;s predictions are designed to support — not replace — educator judgment.
-              All recommendations should be considered alongside your professional expertise
-              and knowledge of individual students.
-            </p>
-          </div>
         </div>
-      </Card>
+      )}
     </div>
   );
 }

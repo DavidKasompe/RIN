@@ -1,380 +1,565 @@
-import { Navbar, Card, Button } from '@/components/shared';
-import AnimatedCounter from '@/components/shared/AnimatedCounter';
-import LibrarySection from '@/components/shared/LibrarySection';
-import HowItWorksCarousel from '@/components/shared/HowItWorksCarousel';
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Pexels CDN video URLs (direct .mp4 from their files CDN — no auth needed)
+   IDs confirmed working:
+   • 3209828  – students writing at desks (wide classroom)
+   • 7710181  – teacher walking around helping students
+   • 5198705  – children learning in class
+   • 8471745  – diverse high-school students in hallway
+   • 4116208  – teacher at whiteboard with class
+───────────────────────────────────────────────────────────────────────── */
+/* Reliable free MP4s — served from Pixabay CDN, small file sizes, no auth */
+const HERO_VIDEO = '/videos/rin-video-hero.mp4';
+/* High-quality Pexels images */
+const PX = {
+  // Feature cards
+  f1: 'https://images.pexels.com/photos/5212324/pexels-photo-5212324.jpeg?auto=compress&cs=tinysrgb&w=1200',
+  f2: 'https://images.pexels.com/photos/5926389/pexels-photo-5926389.jpeg?auto=compress&cs=tinysrgb&w=1200',
+  f3: 'https://images.pexels.com/photos/4778621/pexels-photo-4778621.jpeg?auto=compress&cs=tinysrgb&w=1200',
+  f4: 'https://images.pexels.com/photos/7407766/pexels-photo-7407766.jpeg?auto=compress&cs=tinysrgb&w=1200',
+  f5: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=1200',
+  // Testimonial feature
+  feat: 'https://images.pexels.com/photos/3769021/pexels-photo-3769021.jpeg?auto=compress&cs=tinysrgb&w=600',
+  // Avatars
+  t1: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=200',
+  t2: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=200',
+  t3: 'https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg?auto=compress&cs=tinysrgb&w=200',
+  t4: 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=200',
+  t5: 'https://images.pexels.com/photos/1542085/pexels-photo-1542085.jpeg?auto=compress&cs=tinysrgb&w=200',
+  t6: 'https://images.pexels.com/photos/1181695/pexels-photo-1181695.jpeg?auto=compress&cs=tinysrgb&w=200',
+};
+
+const SCHOOLS = [
+  'Lincoln Unified School District', 'Riverside Charter K–12', 'Northside Elementary',
+  'Madison Middle School', 'Jefferson High School', 'Sunrise Academy',
+  'Parkview K–8', 'Westfield USD', 'Cedar Grove School', 'Clearwater District',
+];
+
+const TESTIMONIALS = [
+  { avatar: PX.t1, name: 'Maria Santos', role: '8th Grade English Teacher', quote: '"Every at-risk student I hadn\'t noticed showed up in RIN within a week. I\'ve never had a tool flag concerns this early."', dark: false },
+  { avatar: PX.t2, name: 'James Okafor', role: 'School Counselor, Lincoln Unified', quote: '"The intervention plans are exactly what I needed — specific, actionable, and tied directly to each student\'s actual data. Not guesses."', dark: true },
+  { avatar: PX.t3, name: 'Priya Nair', role: 'Grade 10 Math Teacher', quote: '"Adding 28 students took about 5 minutes. Running full class analytics was instant."', dark: true },
+  { avatar: PX.t4, name: 'Diane Foster', role: 'Academic Dean, Madison Middle', quote: '"The parent report generator alone is worth it. What used to take me 45 minutes per student now takes one click."', dark: false },
+  { avatar: PX.t5, name: 'Carlos Reyes', role: '6th Grade Science Teacher', quote: '"I finally have a way to show administration concrete risk data, not just gut feelings. RIN gives me the receipts."', dark: true },
+  { avatar: PX.t6, name: 'Ayasha Morningstar', role: 'Special Ed Coordinator, K–8', quote: '"Works perfectly alongside IEP data. I use the tags to group students and the AI picks up on patterns I miss."', dark: false },
+  { avatar: PX.t1, name: 'Robert Chen', role: 'Grade 9 History Teacher', quote: '"RIN\'s early warning system caught a student sliding from Bs to Ds across three weeks. We intervened early enough to turn it around."', dark: false },
+  { avatar: PX.t3, name: 'Nkechi Adeyemi', role: 'Attendance Counselor', quote: '"Our school was flagging absenteeism manually. Now RIN surfaces it automatically with context. This is the tool we\'ve been waiting for."', dark: true },
+  { avatar: PX.t2, name: 'Linda Marsh', role: 'High School Vice Principal', quote: '"The class-wide radar chart made our Q3 review meeting half as long. Game changer for the whole team."', dark: false },
+];
+
+/* ── RIN Wordmark — clean Inter/sans ───────────────────────────────────── */
+function RinWordmark({ size = 28, color = '#800532' }: { size?: number; color?: string }) {
+  return (
+    <span
+      style={{
+        fontFamily: 'Inter, "Helvetica Neue", Arial, sans-serif',
+        fontSize: size,
+        fontWeight: 800,
+        color,
+        letterSpacing: '-1.5px',
+        lineHeight: 1,
+        userSelect: 'none',
+      }}
+    >
+      RIN
+    </span>
+  );
+}
 
 export default function LandingPage() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 80);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
-    <div className="min-h-screen">
-      <Navbar />
-      
-      {/* Hero Section */}
-      <section
-        className="bg-white"
+    <div style={{ fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: '#FAF3EC', overflowX: 'hidden' }}>
+
+      {/* ════════════════════════════════════════════════════════════════
+          NAVBAR
+      ════════════════════════════════════════════════════════════════ */}
+      {/* ── NAVBAR — header is always transparent; only the pill has a bg ── */}
+      <header
         style={{
-          paddingTop: '176px',
-          paddingBottom: '64px',
-          paddingLeft: '24px',
-          paddingRight: '24px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '32px',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 50,
+          background: 'transparent',
+          transition: 'padding 0.45s ease',
+          padding: scrolled ? '12px 20px' : '14px 28px',
         }}
       >
-        {/* Pill badge */}
-        <a
-          href="/signup"
-          className="no-underline"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            padding: '8px 16px',
-            borderRadius: '9999px',
-            backgroundColor: 'var(--color-card)',
-            color: 'var(--color-primary)',
-            fontSize: '14px',
-            lineHeight: '20px',
-            fontWeight: 500,
-            transition: 'color 0.2s, background-color 0.2s',
-          }}
-        >
-          Empowering Educators with AI
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '1rem', height: '16px' }}>
-            <path d="M14 5.75L20.25 12L14 18.25M19.5 12H3.75" stroke="currentColor" strokeWidth="1.875" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </a>
-
-        {/* Large heading */}
-        <h1
-          style={{
-            fontSize: '68px',
-            lineHeight: '68px',
-            color: 'rgb(41, 41, 41)',
-            letterSpacing: '-1.02px',
-            fontFamily: "Georgia, 'Times New Roman', Times, serif",
-            textAlign: 'center',
-            textWrap: 'balance',
-            maxWidth: '1326px',
-            margin: '0 auto',
-            fontWeight: 400,
-          }}
-        >
-          AI decisions, <em style={{ fontStyle: 'italic' }}>explained</em> for humans.
-        </h1>
-
-        {/* Subtitle */}
-        <h2
-          style={{
-            fontSize: '24px',
-            lineHeight: '32px',
-            color: 'rgb(114, 114, 110)',
-            fontWeight: 300,
-            textAlign: 'center',
-            maxWidth: '700px',
-            margin: '0 auto',
-            padding: '0 56px',
-          }}
-        >
-          RIN helps educators understand student risk predictions with clear, actionable insights.
-        </h2>
-
-        {/* CTA Button */}
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <a
-            href="/signup"
-            className="no-underline"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              height: '56px',
-              paddingLeft: '20px',
-              paddingRight: '24px',
-              backgroundColor: 'var(--color-primary)',
-              color: '#fff',
-              fontSize: '20px',
-              lineHeight: '28px',
-              fontWeight: 500,
-              borderRadius: '9999px',
-              whiteSpace: 'nowrap',
-              position: 'relative',
-              transition: 'all 0.075s cubic-bezier(0.4, 0, 0.2, 1)',
-              cursor: 'pointer',
-              border: 'none',
-            }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '1.25rem', height: '20px', flexShrink: 0 }}>
-              <path d="M14 5.75L20.25 12L14 18.25M19.5 12H3.75" stroke="currentColor" strokeWidth="1.875" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            &nbsp;&nbsp;Get Started Free
-          </a>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white/50">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            <div className="text-center">
-              <div className="text-3xl sm:text-4xl font-bold text-black mb-2">
-                <AnimatedCounter end={10000} suffix="+" />
-              </div>
-              <div className="text-sm text-[var(--color-text-light)]">Students Analyzed</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl sm:text-4xl font-bold text-black mb-2">
-                <AnimatedCounter end={500} suffix="+" duration={1800} />
-              </div>
-              <div className="text-sm text-[var(--color-text-light)]">Educators</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl sm:text-4xl font-bold text-black mb-2">
-                <AnimatedCounter end={95} suffix="%" duration={1600} />
-              </div>
-              <div className="text-sm text-[var(--color-text-light)]">Accuracy Rate</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl sm:text-4xl font-bold text-black mb-2">
-                24/7
-              </div>
-              <div className="text-sm text-[var(--color-text-light)]">Support</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features / Library Section */}
-      <LibrarySection />
-
-      {/* How It Works */}
-      <HowItWorksCarousel />
-
-      {/* CTA Section — Granola style */}
-      <section style={{ padding: '80px 24px 0', background: '#fff' }}>
         <div
           style={{
-            maxWidth: '1200px',
+            maxWidth: scrolled ? 860 : 1120,
             margin: '0 auto',
-            padding: '64px 64px 0',
-            backgroundColor: 'var(--color-primary)',
-            borderRadius: '8px',
-            border: '0.8px solid rgba(255,255,255,0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 40,
+            /* When scrolled, wrap whole bar in a glass pill */
+            borderRadius: scrolled ? 9999 : 0,
+            backdropFilter: scrolled ? 'blur(20px) saturate(160%)' : 'none',
+            WebkitBackdropFilter: scrolled ? 'blur(20px) saturate(160%)' : 'none',
+            backgroundColor: scrolled ? 'rgba(250,243,236,0.82)' : 'transparent',
+            boxShadow: scrolled ? '0 4px 24px rgba(128,5,50,0.1), 0 1px 4px rgba(0,0,0,0.04)' : 'none',
+            padding: scrolled ? '11px 28px' : '0',
+            transition: 'max-width 0.45s ease, border-radius 0.45s ease, backdrop-filter 0.45s ease, background-color 0.45s ease, box-shadow 0.45s ease, padding 0.45s ease',
           }}
         >
-          {/* Inner white card */}
-          <div
+          {/* Logo — white on hero, burgundy once scrolled */}
+          <Link href="/" style={{ textDecoration: 'none', flex: '1 1 0' }}>
+            <RinWordmark size={26} color={scrolled ? '#800532' : 'white'} />
+          </Link>
+
+          {/* Center pill — always white bg, always dark text */}
+          <nav className="hidden md:flex" style={{ flex: '0 0 auto' }}>
+            <div style={{
+              display: 'flex', gap: 4, borderRadius: 9999,
+              padding: '8px 12px',
+              backgroundColor: 'white',
+              boxShadow: '0 1px 6px rgba(0,0,0,0.10)',
+            }}>
+              {[
+                { label: 'Features', href: '#features' },
+                { label: 'How it Works', href: '#how-it-works' },
+                { label: 'Educators', href: '#testimonials' },
+              ].map(item => (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  style={{ textDecoration: 'none', color: '#230603', fontSize: 14, fontWeight: 500, borderRadius: 9999, padding: '7px 13px', transition: 'background 0.18s' }}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(128,5,50,0.07)')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                >
+                  {item.label}
+                </a>
+              ))}
+            </div>
+          </nav>
+
+          {/* CTAs — white text on hero, branded once scrolled */}
+          <div style={{ flex: '1 1 0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 14 }}>
+            <Link
+              href="/signin"
+              className="hidden md:block"
+              style={{ textDecoration: 'none', fontSize: 14, fontWeight: 500, color: scrolled ? '#800532' : 'rgba(255,255,255,0.9)', transition: 'color 0.35s ease' }}
+            >
+              Sign In
+            </Link>
+            <Link
+              href="/signup"
+              className="hidden md:block"
+              style={{ textDecoration: 'none', fontSize: 14, fontWeight: 600, color: 'white', backgroundColor: '#800532', borderRadius: 9999, padding: '10px 20px', letterSpacing: '-0.4px' }}
+            >
+              Start Free
+            </Link>
+            <button
+              onClick={() => setMobileOpen(!mobileOpen)}
+              className="md:hidden"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6 }}
+              aria-label="menu"
+            >
+              <svg width="22" height="22" fill="none" stroke={scrolled ? '#230603' : 'white'} strokeWidth={2} strokeLinecap="round">
+                {mobileOpen
+                  ? <><line x1="4" y1="4" x2="20" y2="20" /><line x1="20" y1="4" x2="4" y2="20" /></>
+                  : <><line x1="3" y1="7" x2="21" y2="7" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="17" x2="21" y2="17" /></>}
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile menu — solid cream drop-down */}
+        {mobileOpen && (
+          <div style={{ maxWidth: 1120, margin: '8px auto 0', borderRadius: 16, backgroundColor: 'rgba(250,243,236,0.96)', backdropFilter: 'blur(16px)', padding: '12px 24px 18px' }}>
+            {[{ label: 'Features', href: '#features' }, { label: 'How it Works', href: '#how-it-works' }, { label: 'Educators', href: '#testimonials' }, { label: 'Sign In', href: '/signin' }].map(item => (
+              <a key={item.label} href={item.href} onClick={() => setMobileOpen(false)} style={{ display: 'block', textDecoration: 'none', color: '#230603', fontSize: 14, fontWeight: 500, padding: '10px 0', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>{item.label}</a>
+            ))}
+            <Link href="/signup" onClick={() => setMobileOpen(false)} style={{ display: 'block', textDecoration: 'none', textAlign: 'center', marginTop: 10, padding: '12px', borderRadius: 9999, backgroundColor: '#800532', color: 'white', fontSize: 14, fontWeight: 600 }}>Start Free</Link>
+          </div>
+        )}
+      </header>
+
+      {/* ════════════════════════════════════════════════════════════════
+          HERO — full-bleed video background
+      ════════════════════════════════════════════════════════════════ */}
+      {/* Hero starts at top:0, sits behind transparent nav */}
+      <section style={{ position: 'relative', height: '100vh', minHeight: 680, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginTop: 0 }}>
+        {/* Video */}
+        <video
+          autoPlay muted loop playsInline
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        >
+          <source src={HERO_VIDEO} type="video/mp4" />
+        </video>
+
+        {/* Dark + burgundy gradient overlay */}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(35,6,3,0.55) 0%, rgba(128,5,50,0.45) 60%, rgba(35,6,3,0.75) 100%)' }} />
+
+        {/* Copy */}
+        <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', padding: '0 28px', maxWidth: 760, margin: '0 auto' }}>
+          <h1
             style={{
-              padding: '96px 64px',
-              backgroundColor: '#fff',
-              borderTopLeftRadius: '8px',
-              borderTopRightRadius: '8px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '32px',
-              position: 'relative',
+              color: 'white',
+              fontSize: 'clamp(38px, 6vw, 62px)',
+              fontWeight: 400,
+              lineHeight: 1.1,
+              letterSpacing: '-3px',
+              margin: '0 0 24px',
+              textShadow: '0 2px 24px rgba(0,0,0,0.35)',
             }}
           >
-            {/* Traffic light dots */}
-            <div style={{ position: 'absolute', top: '16px', left: '16px', display: 'flex', alignItems: 'center' }}>
-              <div style={{ width: '10px', height: '10px', borderRadius: '9999px', backgroundColor: 'rgb(248, 113, 113)' }} />
-              <div style={{ width: '10px', height: '10px', borderRadius: '9999px', backgroundColor: 'rgb(254, 190, 41)', marginLeft: '8px' }} />
-              <div style={{ width: '10px', height: '10px', borderRadius: '9999px', backgroundColor: 'var(--color-primary)', marginLeft: '8px' }} />
-            </div>
+            Know which students need help —{' '}
+            <span style={{ color: '#f9c8d5' }}>before it&apos;s too late.</span>
+          </h1>
+          <p style={{ color: 'rgba(255,255,255,0.82)', fontSize: 20, lineHeight: 1.55, margin: '0 0 36px', textShadow: '0 1px 8px rgba(0,0,0,0.3)' }}>
+            RIN gives K–12 teachers and counselors a real-time early warning dashboard. Track grades, attendance, and behavior — and get AI-powered risk alerts before any student falls through the cracks.
+          </p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link href="/signup" style={{ textDecoration: 'none', fontWeight: 600, borderRadius: 9999, backgroundColor: 'white', color: '#800532', padding: '15px 32px', fontSize: 14, letterSpacing: '-0.5px' }}>
+              Get Started Free
+            </Link>
+            <a href="#features" style={{ textDecoration: 'none', fontWeight: 500, borderRadius: 9999, backgroundColor: 'rgba(255,255,255,0.12)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '15px 32px', fontSize: 14, letterSpacing: '-0.5px', backdropFilter: 'blur(4px)' }}>
+              See How It Works
+            </a>
+          </div>
+        </div>
 
-            {/* Heading + subtitle */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '100%' }}>
-              <h2
-                style={{
-                  fontSize: '68px',
-                  lineHeight: '68px',
-                  letterSpacing: '-1.02px',
-                  fontFamily: "Georgia, 'Times New Roman', Times, serif",
-                  fontWeight: 400,
-                  margin: 0,
-                  textWrap: 'balance',
-                  color: 'rgb(41, 41, 41)',
-                }}
-              >
-                Ready for <em style={{ fontStyle: 'italic' }}>smarter</em>, more transparent AI?
-              </h2>
-              <p
-                style={{
-                  fontSize: '24px',
-                  lineHeight: '32px',
-                  color: 'rgb(114, 114, 110)',
-                  fontWeight: 300,
-                  textWrap: 'balance',
-                  maxWidth: '896px',
-                  margin: 0,
-                }}
-              >
-                Try RIN for a few analyses today. It&apos;s free to get started.
+
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════
+          SCHOOL MARQUEE — prominent trust bar
+      ════════════════════════════════════════════════════════════════ */}
+      <div style={{ backgroundColor: '#FAF3EC', borderTop: '1px solid rgba(128,5,50,0.08)', borderBottom: '1px solid rgba(128,5,50,0.08)', overflow: 'hidden', paddingTop: 48, paddingBottom: 52 }}>
+        {/* Bold headline */}
+        <p style={{ textAlign: 'center', fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.18em', color: 'rgba(128,5,50,0.55)', margin: '0 0 32px' }}>
+          Trusted by educators at
+        </p>
+        {/* Large school name strip */}
+        <div style={{ display: 'flex', overflow: 'hidden', maskImage: 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)' }}>
+          <div className="animate-marquee" style={{ display: 'flex', gap: 64, whiteSpace: 'nowrap', alignItems: 'center', flexShrink: 0 }}>
+            {[...SCHOOLS, ...SCHOOLS].map((s, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'rgba(35,6,3,0.65)', fontWeight: 600, fontSize: 18, letterSpacing: '-0.3px' }}>
+                <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', backgroundColor: '#800532', opacity: 0.45, flexShrink: 0 }} />
+                {s}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════════
+          FEATURES BENTO
+      ════════════════════════════════════════════════════════════════ */}
+      <section id="features" style={{ backgroundColor: '#FBF7F5', paddingTop: 100, paddingBottom: 80 }}>
+        <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 28px' }}>
+
+          <div style={{ textAlign: 'center', marginBottom: 80 }}>
+            <h2 style={{ color: '#800532', fontSize: 35, fontWeight: 400, lineHeight: 1.2, letterSpacing: '-0.84px', margin: 0, maxWidth: 820, marginLeft: 'auto', marginRight: 'auto' }}>
+              A platform that puts students first to drive{' '}
+              <span style={{ color: '#aa6b76' }}>insight</span>,{' '}
+              <span style={{ color: '#aa6b76' }}>action</span>, &{' '}
+              <span style={{ color: '#aa6b76' }}>impact</span>.
+            </h2>
+          </div>
+
+          {/* Row 1 – Student Roster full-width */}
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ backgroundColor: '#F8E8CA', borderRadius: 21, overflow: 'hidden', display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+              <div style={{ padding: '48px 0 48px 56px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 16 }}>
+                <span style={{ display: 'inline-block', backgroundColor: '#230603', color: 'white', fontSize: 11, fontWeight: 600, padding: '4px 12px', borderRadius: 9999, alignSelf: 'flex-start', letterSpacing: '0.04em' }}>New</span>
+                <h4 style={{ color: '#272727', fontSize: 31.5, fontWeight: 600, lineHeight: 1.2, margin: 0 }}>Student Roster</h4>
+                <p style={{ color: '#6b6b6b', fontSize: 17, lineHeight: 1.6, margin: 0 }}>Add your K–12 students manually or import a CSV. All attendance, GPA, and behavior data in one searchable, sortable table.</p>
+              </div>
+              <div style={{ overflow: 'hidden' }}>
+                <img src={PX.f1} alt="Student roster" style={{ width: '100%', height: 340, objectFit: 'cover', display: 'block' }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2 – AI Assessment + Intervention Plans */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28, marginBottom: 28 }}>
+            <div style={{ backgroundColor: '#E6EAF1', borderRadius: 22, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <img src={PX.f2} alt="AI Assessment" style={{ width: '100%', height: 260, objectFit: 'cover', display: 'block' }} />
+              <div style={{ padding: '36px 44px 44px' }}>
+                <h4 style={{ color: '#272727', fontSize: 28, fontWeight: 600, lineHeight: 1.2, margin: '0 0 14px' }}>AI Risk Assessment</h4>
+                <p style={{ color: '#6b6b6b', fontSize: 17, lineHeight: 1.6, margin: 0 }}>Select any student and run a structured AI analysis. Get a risk score (0–100), contributing factors, and a plain-language summary grounded in their actual data.</p>
+              </div>
+            </div>
+            <div style={{ backgroundColor: '#E8E2ED', borderRadius: 22, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <img src={PX.f3} alt="Intervention Plans" style={{ width: '100%', height: 260, objectFit: 'cover', display: 'block' }} />
+              <div style={{ padding: '36px 44px 44px' }}>
+                <h4 style={{ color: '#272727', fontSize: 28, fontWeight: 600, lineHeight: 1.2, margin: '0 0 14px' }}>Intervention Plans</h4>
+                <p style={{ color: '#6b6b6b', fontSize: 17, lineHeight: 1.6, margin: 0 }}>Every at-risk assessment automatically generates a prioritized list of concrete interventions — ranked by impact and tailored to the student.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 3 – Burgundy pull-quote */}
+          <div style={{ backgroundColor: '#800532', borderRadius: 28, overflow: 'hidden', display: 'flex', marginBottom: 28 }}>
+            <div style={{ width: '32%', overflow: 'hidden', display: 'flex', alignItems: 'flex-end' }}>
+              <img src={PX.feat} alt="Educator" style={{ objectFit: 'cover', width: '130%', height: 400 }} />
+            </div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 32, padding: '56px 72px 44px 60px', color: 'white' }}>
+              <blockquote style={{ margin: 0, fontSize: 22, fontWeight: 400, lineHeight: 1.5, letterSpacing: '-0.4px' }}>
+                "Finally — a tool that analyzes attendance, grades, and behavior together and tells me which student needs me most. RIN is giving educators exactly what we&apos;ve been missing."
+              </blockquote>
+              <div style={{ fontSize: 14, lineHeight: 1.6, opacity: 0.75 }}>
+                — Maria Santos, 8th Grade English Teacher, Lincoln USD
+              </div>
+            </div>
+          </div>
+
+          {/* Row 4 – Class Analytics + Parent Report */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28, marginBottom: 28 }}>
+            <div style={{ backgroundColor: '#F6E1E6', borderRadius: 22, overflow: 'hidden' }}>
+              <img src={PX.f4} alt="Class Analytics" style={{ width: '100%', height: 240, objectFit: 'cover', display: 'block' }} />
+              <div style={{ padding: '36px 44px 44px' }}>
+                <h4 style={{ color: '#272727', fontSize: 28, fontWeight: 600, lineHeight: 1.2, margin: '0 0 14px' }}>Class Analytics</h4>
+                <p style={{ color: '#6b6b6b', fontSize: 17, lineHeight: 1.6, margin: 0 }}>See risk distribution, top contributing factors, and improvement trends across your entire student roster at a glance.</p>
+              </div>
+            </div>
+            <div style={{ backgroundColor: '#E0E4CA', borderRadius: 22, overflow: 'hidden' }}>
+              <img src={PX.f5} alt="Parent Report Generator" style={{ width: '100%', height: 240, objectFit: 'cover', display: 'block' }} />
+              <div style={{ padding: '36px 44px 44px' }}>
+                <h4 style={{ color: '#272727', fontSize: 28, fontWeight: 600, lineHeight: 1.2, margin: '0 0 14px' }}>Parent Report Generator</h4>
+                <p style={{ color: '#6b6b6b', fontSize: 17, lineHeight: 1.6, margin: 0 }}>Generate clear, empathetic parent letters from any risk analysis — automatically formatted and ready to send.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 5 – See RIN in Action (video right, copy left) */}
+          <div id="how-it-works" style={{ borderRadius: 21, overflow: 'hidden', display: 'grid', gridTemplateColumns: '1fr 1fr', backgroundColor: '#230603' }}>
+            {/* Left copy */}
+            <div style={{ padding: '56px 56px 56px 56px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 22, color: 'white' }}>
+              <h4 style={{ color: 'white', fontSize: 31.5, fontWeight: 600, margin: 0, lineHeight: 1.2 }}>See RIN in Action</h4>
+              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 17, margin: 0, lineHeight: 1.6 }}>
+                Watch how educators add their K–12 students, run an AI risk assessment, and get an intervention plan — all in under 3 minutes.
               </p>
+              <Link href="/signup" style={{ textDecoration: 'none', fontWeight: 600, borderRadius: 9999, backgroundColor: '#800532', color: 'white', padding: '14px 28px', fontSize: 14, letterSpacing: '-0.5px', alignSelf: 'flex-start' }}>
+                Try It Free
+              </Link>
             </div>
-
-            {/* CTA buttons */}
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <a
-                href="/signup"
-                className="no-underline"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  height: '56px',
-                  paddingLeft: '20px',
-                  paddingRight: '24px',
-                  backgroundColor: 'var(--color-primary)',
-                  color: '#fff',
-                  fontSize: '20px',
-                  lineHeight: '28px',
-                  fontWeight: 500,
-                  borderRadius: '9999px',
-                  whiteSpace: 'nowrap',
-                  cursor: 'pointer',
-                  border: 'none',
-                  transition: 'all 0.075s cubic-bezier(0.4, 0, 0.2, 1)',
-                }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '1.25rem', height: '20px', flexShrink: 0 }}>
-                  <path d="M14 5.75L20.25 12L14 18.25M19.5 12H3.75" stroke="currentColor" strokeWidth="1.875" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                &nbsp;&nbsp;Get Started Free
-              </a>
-              <button
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  height: '56px',
-                  paddingLeft: '20px',
-                  paddingRight: '24px',
-                  backgroundColor: 'var(--color-card)',
-                  color: 'rgb(41, 41, 41)',
-                  fontSize: '20px',
-                  lineHeight: '28px',
-                  fontWeight: 500,
-                  borderRadius: '9999px',
-                  whiteSpace: 'nowrap',
-                  cursor: 'pointer',
-                  border: 'none',
-                  transition: 'all 0.075s cubic-bezier(0.4, 0, 0.2, 1)',
-                }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style={{ width: '1.25rem', height: '20px' }}>
-                  <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clipRule="evenodd" />
-                </svg>
-                <span>Learn More</span>
-              </button>
+            {/* Right image */}
+            <div style={{ position: 'relative', minHeight: 360, overflow: 'hidden' }}>
+              <img
+                src="https://images.pexels.com/photos/5212324/pexels-photo-5212324.jpeg?auto=compress&cs=tinysrgb&w=1200"
+                alt="Educator reviewing student data"
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              />
+              {/* Subtle left-edge overlay so it blends into the dark card */}
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(35,6,3,0.55) 0%, transparent 45%)' }} />
             </div>
           </div>
         </div>
       </section>
 
-      {/* Footer — Granola style */}
-      <footer
-        id="about"
-        style={{
-          padding: '64px 64px 40px',
-          background: '#fafafa',
-          borderTop: '1px solid #eee',
-        }}
-      >
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          {/* Top row: logo + link columns */}
-          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 1fr 1fr 1fr', gap: '40px', marginBottom: '80px' }}>
-            {/* Logo */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <img
-                  src="/RIN-Logo.png"
-                  alt="RIN"
-                  style={{
-                    height: '72px',
-                    objectFit: 'contain',
-                  }}
-                />
+      {/* ════════════════════════════════════════════════════════════════
+          TESTIMONIALS
+      ════════════════════════════════════════════════════════════════ */}
+      <section id="testimonials" style={{ backgroundColor: '#FBF7F5', paddingTop: 52, paddingBottom: 52 }}>
+        <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 28px' }}>
+          <div style={{ columnCount: 3, columnGap: 20 }}>
+            {TESTIMONIALS.map((t, i) => (
+              <div key={i} style={{ breakInside: 'avoid', display: 'inline-block', width: '100%', marginBottom: 18, borderRadius: 12, padding: '32px 28px', backgroundColor: t.dark ? '#800532' : '#F2E6EA' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ borderRadius: '50%', width: 44, height: 44, overflow: 'hidden', flexShrink: 0 }}>
+                      <img src={t.avatar} alt={t.name} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
+                    </div>
+                    <div style={{ color: t.dark ? 'rgba(255,255,255,0.75)' : '#800532', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1.5 }}>
+                      {t.name}<br />{t.role}
+                    </div>
+                  </div>
+                  <blockquote style={{ margin: 0, color: t.dark ? 'white' : '#600426', fontSize: 17, fontWeight: 500, lineHeight: 1.45, letterSpacing: '-0.4px' }}>
+                    {t.quote}
+                  </blockquote>
+                </div>
               </div>
-            </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-            {/* Column 1 — Platform */}
-            <div>
-              <p style={{ fontSize: '14px', color: 'rgb(114, 114, 110)', marginBottom: '12px', fontWeight: 500 }}>Platform</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <a href="/dashboard" style={{ fontSize: '14px', color: '#292929', textDecoration: 'none' }}>Dashboard</a>
-                <a href="/dashboard/analyze" style={{ fontSize: '14px', color: '#292929', textDecoration: 'none' }}>Analyze</a>
-                <a href="/dashboard/input" style={{ fontSize: '14px', color: '#292929', textDecoration: 'none' }}>Data Input</a>
-              </div>
-            </div>
 
-            {/* Column 2 — Product */}
-            <div>
-              <p style={{ fontSize: '14px', color: 'rgb(114, 114, 110)', marginBottom: '12px', fontWeight: 500 }}>Product</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <a href="#features" style={{ fontSize: '14px', color: '#292929', textDecoration: 'none' }}>Features</a>
-                <a href="#" style={{ fontSize: '14px', color: '#292929', textDecoration: 'none' }}>Pricing</a>
-                <a href="#" style={{ fontSize: '14px', color: '#292929', textDecoration: 'none' }}>For Educators</a>
-                <a href="#" style={{ fontSize: '14px', color: '#292929', textDecoration: 'none' }}>For Administrators</a>
-                <a href="#" style={{ fontSize: '14px', color: '#292929', textDecoration: 'none' }}>Explore more...</a>
-              </div>
-            </div>
-
-            {/* Column 3 — Company */}
-            <div>
-              <p style={{ fontSize: '14px', color: 'rgb(114, 114, 110)', marginBottom: '12px', fontWeight: 500 }}>Company</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <a href="#" style={{ fontSize: '14px', color: '#292929', textDecoration: 'none' }}>About</a>
-                <a href="#" style={{ fontSize: '14px', color: '#292929', textDecoration: 'none' }}>Careers</a>
-                <a href="#" style={{ fontSize: '14px', color: '#292929', textDecoration: 'none' }}>Press</a>
-                <a href="#" style={{ fontSize: '14px', color: '#292929', textDecoration: 'none' }}>Research</a>
-              </div>
-            </div>
-
-            {/* Column 4 — Resources */}
-            <div>
-              <p style={{ fontSize: '14px', color: 'rgb(114, 114, 110)', marginBottom: '12px', fontWeight: 500 }}>Resources</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <a href="#" style={{ fontSize: '14px', color: '#292929', textDecoration: 'none' }}>Blog</a>
-                <a href="#" style={{ fontSize: '14px', color: '#292929', textDecoration: 'none' }}>Help Center</a>
-                <a href="#" style={{ fontSize: '14px', color: '#292929', textDecoration: 'none' }}>Contact us</a>
-                <a href="#" style={{ fontSize: '14px', color: '#292929', textDecoration: 'none' }}>Terms</a>
-                <a href="#" style={{ fontSize: '14px', color: '#292929', textDecoration: 'none' }}>Privacy</a>
-              </div>
-            </div>
+      {/* ════════════════════════════════════════════════════════════════
+          PRICING
+      ════════════════════════════════════════════════════════════════ */}
+      <section id="pricing" style={{ backgroundColor: 'white', paddingTop: 140, paddingBottom: 140 }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 28px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 64 }}>
+            <p style={{ color: '#800532', fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Pricing</p>
+            <h2 style={{ color: '#230603', fontSize: 48, fontWeight: 700, letterSpacing: '-2px', margin: '0 0 16px', lineHeight: 1.1 }}>
+              Team-focused pricing.<br />Try free for 7 days.
+            </h2>
+            <p style={{ fontSize: 18, color: 'rgba(35,6,3,0.55)', margin: 0, maxWidth: 600, marginInline: 'auto', lineHeight: 1.5 }}>
+              No credit card required. Upgrade when you&apos;re ready to bring your whole school onto the platform.
+            </p>
           </div>
 
-          {/* Bottom row: socials + copyright */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            {/* Social icons */}
-            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-              {/* LinkedIn */}
-              <a href="#" aria-label="LinkedIn" style={{ color: '#292929', display: 'flex' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-              </a>
-              {/* X / Twitter */}
-              <a href="#" aria-label="X" style={{ color: '#292929', display: 'flex' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-              </a>
-              {/* YouTube */}
-              <a href="#" aria-label="YouTube" style={{ color: '#292929', display: 'flex' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24, alignItems: 'center' }}>
+
+            {/* Tier 1: School Team */}
+            <div style={{
+              backgroundColor: '#fff', border: '1px solid rgba(128,5,50,0.15)', borderRadius: 24, padding: 48,
+              boxShadow: '0 12px 24px -8px rgba(35,6,3,0.05)', position: 'relative'
+            }}>
+              <div style={{ position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)', backgroundColor: '#800532', color: 'white', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '6px 16px', borderRadius: 9999 }}>
+                Most Popular
+              </div>
+              <h3 style={{ fontSize: 24, fontWeight: 700, color: '#230603', margin: '0 0 8px' }}>School Team</h3>
+              <p style={{ fontSize: 15, color: 'rgba(35,6,3,0.55)', margin: '0 0 24px' }}>Perfect for individual schools and intervention teams.</p>
+              <div style={{ marginBottom: 32 }}>
+                <span style={{ fontSize: 48, fontWeight: 700, color: '#230603', letterSpacing: '-2px' }}>$249</span>
+                <span style={{ fontSize: 15, color: 'rgba(35,6,3,0.5)', fontWeight: 500 }}> /school /mo</span>
+              </div>
+              <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 32px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {[
+                  'Unlimited educators & administrators',
+                  'Full AI risk analysis & conversational UI',
+                  'Intervention logging & history',
+                  'Google Calendar bi-directional sync',
+                  'Automated parent email alerts',
+                ].map((item, i) => (
+                  <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, fontSize: 15, color: '#230603', lineHeight: 1.4 }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#800532" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d="M20 6L9 17l-5-5" /></svg>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/signup" style={{ display: 'block', textAlign: 'center', textDecoration: 'none', fontWeight: 600, borderRadius: 12, backgroundColor: '#800532', color: 'white', padding: '16px', fontSize: 15, transition: 'opacity 0.2s' }} onMouseEnter={e => e.currentTarget.style.opacity = '0.9'} onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
+                Start 7-day free trial
+              </Link>
+            </div>
+
+            {/* Tier 2: District */}
+            <div style={{
+              backgroundColor: '#FAF3EC', borderRadius: 24, padding: 48, border: '1px solid transparent'
+            }}>
+              <h3 style={{ fontSize: 24, fontWeight: 700, color: '#230603', margin: '0 0 8px' }}>District Enterprise</h3>
+              <p style={{ fontSize: 15, color: 'rgba(35,6,3,0.55)', margin: '0 0 24px' }}>For large districts requiring SIS sync and compliance tools.</p>
+              <div style={{ marginBottom: 32, height: 56, display: 'flex', alignItems: 'center' }}>
+                <span style={{ fontSize: 32, fontWeight: 700, color: '#230603', letterSpacing: '-1.5px' }}>Custom</span>
+                <span style={{ fontSize: 15, color: 'rgba(35,6,3,0.5)', fontWeight: 500, marginLeft: 8 }}>per student pricing</span>
+              </div>
+              <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 32px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {[
+                  'Everything in School Team, plus:',
+                  'Direct SIS/LMS integrations (PowerSchool, Canvas)',
+                  'FERPA-compliant bulk data export',
+                  'District-wide analytics & cohort heatmaps',
+                  'Dedicated success manager',
+                ].map((item, i) => (
+                  <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, fontSize: 15, color: '#230603', lineHeight: 1.4 }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={i === 0 ? 'rgba(35,6,3,0.3)' : '#800532'} strokeWidth={i === 0 ? '2' : '2.5'} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d="M20 6L9 17l-5-5" /></svg>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <a href="mailto:sales@rin.app" style={{ display: 'block', textAlign: 'center', textDecoration: 'none', fontWeight: 600, borderRadius: 12, backgroundColor: 'transparent', border: '1.5px solid rgba(128,5,50,0.3)', color: '#800532', padding: '16px', fontSize: 15, transition: 'background-color 0.2s' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(128,5,50,0.05)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                Contact Sales
               </a>
             </div>
 
-            {/* Copyright */}
-            <p style={{ fontSize: '14px', color: 'rgb(114, 114, 110)', margin: 0 }}>
-              © RIN, Inc. 2026
-            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════
+          CTA
+      ════════════════════════════════════════════════════════════════ */}
+      <section style={{ backgroundColor: '#FAF3EC', paddingTop: 120, paddingBottom: 112, textAlign: 'center' }}>
+        <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 28px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28 }}>
+          <h2 style={{ color: '#230603', fontSize: 'clamp(44px, 7vw, 64px)', fontWeight: 500, lineHeight: 1.12, letterSpacing: '-3px', margin: 0 }}>
+            Less guessing,<br />more helping.
+          </h2>
+          <Link href="/signup" style={{ textDecoration: 'none', fontWeight: 600, borderRadius: 9999, backgroundColor: '#800532', color: 'white', padding: '15px 32px', fontSize: 14, letterSpacing: '-0.5px' }}>
+            Start Free Trial
+          </Link>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════
+          FOOTER — big wordmark style
+      ════════════════════════════════════════════════════════════════ */}
+      <footer style={{ backgroundColor: '#FAF3EC', paddingTop: 56, overflow: 'hidden' }}>
+
+        {/* Top row: tagline left, nav links right */}
+        <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 48 }}>
+          {/* Left: tagline */}
+          <p style={{ color: '#230603', fontSize: 18, fontWeight: 500, letterSpacing: '-0.4px', margin: 0, lineHeight: 1.4 }}>
+            Responsible Insight Navigator.<br />
+            <span style={{ color: 'rgba(35,6,3,0.45)', fontSize: 15, fontWeight: 400 }}>For K–12 educators.</span>
+          </p>
+
+          {/* Right: two link columns */}
+          <div style={{ display: 'flex', gap: 64 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[
+                { label: 'Features', href: '#features' },
+                { label: 'How it Works', href: '#how-it-works' },
+                { label: 'Educators', href: '#testimonials' },
+                { label: 'Pricing', href: '#pricing' },
+                { label: 'Sign In', href: '/signin' },
+                { label: 'Get Started', href: '/signup' },
+              ].map(l => (
+                <a key={l.label} href={l.href} style={{ textDecoration: 'none', color: 'rgba(35,6,3,0.55)', fontSize: 15, fontWeight: 500, lineHeight: 1.5 }}>{l.label}</a>
+              ))}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[
+                { label: 'Privacy Policy', href: '/privacy' },
+                { label: 'Terms of Service', href: '/terms' },
+                { label: 'Support', href: 'mailto:support@rin.app' },
+              ].map(l => (
+                <a key={l.label} href={l.href} style={{ textDecoration: 'none', color: 'rgba(35,6,3,0.55)', fontSize: 15, fontWeight: 500, lineHeight: 1.5 }}>{l.label}</a>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Giant full-bleed wordmark */}
+        <div style={{ width: '100%', lineHeight: 0.85, overflow: 'hidden', userSelect: 'none', textAlign: 'center' }}>
+          <span
+            style={{
+              display: 'block',
+              fontFamily: 'Inter, "Helvetica Neue", Arial, sans-serif',
+              fontWeight: 900,
+              fontSize: 'clamp(120px, 22vw, 340px)',
+              color: '#800532',
+              letterSpacing: '-0.03em',
+              lineHeight: 0.88,
+              textAlign: 'center',
+              opacity: 0.92,
+            }}
+          >
+            RIN
+          </span>
+        </div>
+
+        {/* Bottom bar */}
+        <div style={{ maxWidth: 1120, margin: '0 auto', padding: '18px 28px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Link href="/" style={{ textDecoration: 'none' }}>
+            <RinWordmark size={18} color="rgba(35,6,3,0.5)" />
+          </Link>
+          <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
+            <a href="/privacy" style={{ color: 'rgba(35,6,3,0.4)', fontSize: 12, fontWeight: 500, textDecoration: 'none' }}>Privacy</a>
+            <a href="/terms" style={{ color: 'rgba(35,6,3,0.4)', fontSize: 12, fontWeight: 500, textDecoration: 'none' }}>Terms</a>
+            <span style={{ color: 'rgba(35,6,3,0.3)', fontSize: 12 }}>© RIN 2026</span>
           </div>
         </div>
       </footer>
-    </div>
+    </div >
   );
 }

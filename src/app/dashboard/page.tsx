@@ -1,614 +1,521 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import Link from 'next/link';
-import { Card, Button, CircularProgress } from '@/components/shared';
-import DictateButton from '@/components/DictateButton';
-import { saveAnalysis } from '@/lib/analysisStore';
-import {
-  getChatSession,
-  saveChatSession,
-  getActiveChatId,
-  setActiveChatId,
-  createNewChatId,
-  extractChatTitle,
-  type ChatMessage,
-} from '@/lib/chatStore';
+import { C1Component, ThemeProvider } from '@thesysai/genui-sdk';
+import { ArrowUp, AlertTriangle, Brain, FileText, TrendingUp, Loader2, Search, Paperclip, Sliders } from 'lucide-react';
 
+// ─── Types ────────────────────────────────────────────────────────────────────
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  timestamp: Date;
-  riskData?: {
-    riskScore: number;
-    category: string;
-    confidence: number;
-    factors: string[];
-  };
+  isStreaming?: boolean;
 }
 
-const suggestedPrompts = [
-  {
-    text: "Analyze a student whose attendance dropped below 75% and math scores declined this semester",
-    icon: "/image-icon/vecteezy_leadership-for-successful-new-idea-excellent-business-graph_8879458.png"
+// ─── RIN theme ────────────────────────────────────────────────────────────────
+const RIN_THEME = {
+  theme: {
+    backgroundFills: 'rgb(250,250,249)',
+    containerFills: 'white',
+    elevatedFills: 'white',
+    strokeDefault: 'rgb(228,221,205)',
+    strokeInteractiveEl: 'rgb(228,221,205)',
+    chatContainerBg: 'rgb(250,250,249)',
+    chatUserResponseBg: '#800532',
+    chatUserResponseText: 'white',
+    chatAssistantResponseBg: 'white',
+    chatAssistantResponseText: 'rgb(26,25,25)',
+    brandElFills: '#800532',
+    brandElHoverFills: '#6b0428',
+    primaryText: 'rgb(26,25,25)',
+    secondaryText: 'rgb(114,106,90)',
+    interactiveAccent: '#800532',
+    interactiveAccentHover: '#6b0428',
   },
-  {
-    text: "Evaluate a student with high participation but consistently low assignment completion rates",
-    icon: "/image-icon/vecteezy_3d-clipboard-icon-for-business-isolated-on-clean-background_47308238.png"
-  },
-  {
-    text: "Assess risk for a student showing behavioral changes and declining engagement after winter break",
-    icon: "/image-icon/vecteezy_minimalist-magnifying-glass-icon-with-blue-handle-3d-render_58144752.png"
-  },
-  {
-    text: "Review a student with strong academics but frequent absences and late submissions",
-    icon: "/image-icon/vecteezy_leadership-for-successful-new-idea-excellent-business-graph_8879458.png"
-  }
+};
+
+// ─── Starter chips ────────────────────────────────────────────────────────────
+const STARTERS = [
+  { icon: AlertTriangle, label: 'Analyze student risk', color: '#dc2626', prompt: 'Analyze dropout risk for a student with 68% attendance, GPA 1.8, and 4 behavior referrals this semester.' },
+  { icon: Brain, label: 'Intervention plan', color: '#800532', prompt: 'Suggest evidence-based intervention strategies for a student with chronic absenteeism and declining grades.' },
+  { icon: FileText, label: 'Parent letter', color: '#92400e', prompt: 'Write a parent-facing summary letter about a student showing academic decline and attendance issues.' },
+  { icon: TrendingUp, label: 'Scenario simulation', color: '#065f46', prompt: 'Simulate risk trajectory if a student improves attendance by 15% and completes all assignments next term.' },
 ];
 
-// Track the latest analysis context for follow-up questions
-interface AnalysisContext {
-  summary: string;
-  riskScore: number;
-  factors: string[];
+// ─── Typing suggestions ───────────────────────────────────────────────────────
+const SUGGESTIONS = [
+  'Analyze dropout risk for a student with low attendance',
+  'What interventions work best for at-risk students?',
+  'Generate an intervention plan for a struggling student',
+  'Write a parent letter about academic concerns',
+  'Simulate improvement if attendance increases by 20%',
+  'What factors contribute most to student dropout?',
+  'How can I support a student with behavioral issues?',
+];
+
+// ─── Stream helper ────────────────────────────────────────────────────────────
+async function streamC1(
+  messages: { role: string; content: string }[],
+  onChunk: (acc: string) => void,
+  signal: AbortSignal,
+) {
+  const res = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages }),
+    signal,
+  });
+  if (!res.ok || !res.body) throw new Error(`Stream failed: ${res.status}`);
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let accumulated = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    accumulated += decoder.decode(value, { stream: true });
+    onChunk(accumulated);
+  }
 }
 
+// ─── User bubble ─────────────────────────────────────────────────────────────
+function UserBubble({ content }: { content: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
+      <div style={{
+        maxWidth: '72%',
+        padding: '11px 15px',
+        borderRadius: '18px',
+        background: '#800532',
+        color: 'white',
+        fontSize: '14px',
+        lineHeight: '1.6',
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+      }}>
+        {content}
+      </div>
+    </div>
+  );
+}
+
+// ─── Assistant bubble ─────────────────────────────────────────────────────────
+function AssistantBubble({ content, isStreaming }: { content: string; isStreaming: boolean }) {
+  return (
+    <div style={{ display: 'flex', marginBottom: '20px' }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <C1Component
+          c1Response={content}
+          isStreaming={isStreaming}
+          onError={({ code }) => console.error('C1 error', code)}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Input Box ────────────────────────────────────────────────────────────────
+interface InputBoxProps {
+  value: string;
+  onChange: (v: string) => void;
+  onSend: (text: string) => void;
+  isLoading: boolean;
+  hasMessages?: boolean;
+}
+
+function InputBox({ value, onChange, onSend, isLoading, hasMessages = false }: InputBoxProps) {
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const filtered = value.trim().length > 0
+    ? SUGGESTIONS.filter(s => s.toLowerCase().includes(value.toLowerCase()))
+    : [];
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    onChange(e.target.value);
+    const ta = e.target;
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 200) + 'px';
+    setShowSuggestions(!hasMessages && e.target.value.trim().length > 0);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  };
+
+  const handleSend = () => {
+    if (!value.trim() || isLoading) return;
+    setShowSuggestions(false);
+    onSend(value);
+  };
+
+  const handleSuggestionClick = (s: string) => {
+    onChange(s);
+    setShowSuggestions(false);
+    onSend(s);
+  };
+
+  const hasInput = value.trim().length > 0;
+
+  return (
+    <div style={{ width: '100%', position: 'relative' }}>
+
+      {/* ── Glass input card ── */}
+      <div className="rin-glass-input">
+
+        {/* Beige background layer */}
+        <div style={{
+          background: 'rgb(243,240,236)',
+          borderRadius: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          transition: 'all 0.5s cubic-bezier(0,0,0.2,1)',
+        }}>
+
+          {/* White inner card */}
+          <div style={{
+            background: 'rgba(255,255,255,0.92)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            borderRadius: '18px',
+            border: '2px solid rgba(255,255,255,0.7)',
+            boxShadow: '0 8px 32px rgba(114,106,90,0.12), 0 2px 8px rgba(114,106,90,0.08), inset 0 1px 0 rgba(255,255,255,0.9)',
+            overflow: 'visible',
+            position: 'relative',
+          }}>
+
+            {/* Textarea */}
+            <textarea
+              ref={taRef}
+              value={value}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              onFocus={() => !hasMessages && value.trim() && setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 160)}
+              placeholder="Ask RIN about a student… (Shift+Enter for new line)"
+              rows={1}
+              style={{
+                fontSize: '16px',
+                lineHeight: '22px',
+                padding: '18px 18px 10px',
+                minHeight: '80px',
+                maxHeight: '200px',
+                width: '100%',
+                border: 'none',
+                background: 'transparent',
+                outline: 'none',
+                resize: 'none',
+                overflowY: 'hidden',
+                fontFamily: "'DM Sans', system-ui, sans-serif",
+                color: 'rgb(26,25,25)',
+                boxSizing: 'border-box',
+                borderRadius: '18px 18px 0 0',
+              }}
+            />
+
+            {/* Toolbar */}
+            <div style={{
+              padding: '8px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+              borderTop: '1px solid rgba(228,221,205,0.5)',
+            }}>
+              {/* Left: attach + tools */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <button
+                  className="rin-toolbar-btn"
+                  title="Attach file"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', height: '34px', background: 'transparent', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'rgb(114,106,90)', gap: '6px', fontSize: '14px', fontFamily: "'DM Sans', system-ui, sans-serif" }}
+                >
+                  <Paperclip size={15} />
+                </button>
+
+                <div style={{ position: 'relative' }}>
+                  <button
+                    className="rin-toolbar-btn"
+                    onClick={() => setToolsOpen(o => !o)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 10px', height: '34px',
+                      background: toolsOpen ? 'rgb(243,240,236)' : 'transparent',
+                      border: 'none', borderRadius: '8px', cursor: 'pointer',
+                      color: toolsOpen ? 'rgb(26,25,25)' : 'rgb(114,106,90)',
+                      fontSize: '14px', fontWeight: 500, fontFamily: "'DM Sans', system-ui, sans-serif",
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <Sliders size={14} />
+                    <span>Tools</span>
+                  </button>
+
+                  {/* Tools dropdown */}
+                  {toolsOpen && (
+                    <div style={{
+                      position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, zIndex: 50,
+                      background: 'rgba(255,255,255,0.95)',
+                      backdropFilter: 'blur(16px)',
+                      WebkitBackdropFilter: 'blur(16px)',
+                      border: '1px solid rgba(228,221,205,0.8)',
+                      borderRadius: '12px',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+                      padding: '6px',
+                      minWidth: '200px',
+                      animation: 'rin-dropdown-up 0.18s cubic-bezier(0.16,1,0.3,1) both',
+                    }}>
+                      {[
+                        { icon: AlertTriangle, label: 'Risk Analysis', color: '#dc2626' },
+                        { icon: Brain, label: 'Intervention Planning', color: '#800532' },
+                        { icon: FileText, label: 'Document Generation', color: '#92400e' },
+                        { icon: TrendingUp, label: 'Scenario Modeling', color: '#065f46' },
+                      ].map(t => (
+                        <button key={t.label} className="rin-tool-item" onClick={() => setToolsOpen(false)} style={{
+                          display: 'flex', alignItems: 'center', gap: '10px', width: '100%',
+                          padding: '9px 12px', background: 'transparent', border: 'none',
+                          borderRadius: '8px', cursor: 'pointer', textAlign: 'left',
+                          fontSize: '14px', fontWeight: 500, color: 'rgb(26,25,25)',
+                          fontFamily: "'DM Sans', system-ui, sans-serif",
+                          transition: 'background 0.1s',
+                        }}>
+                          <t.icon size={14} color={t.color} />
+                          <span>{t.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right: send */}
+              <button
+                className="rin-send-btn"
+                onClick={handleSend}
+                disabled={!hasInput || isLoading}
+                style={{
+                  width: '34px', height: '34px',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  background: hasInput && !isLoading ? '#1a1918' : '#1a1918',
+                  opacity: hasInput && !isLoading ? 1 : 0.45,
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '9999px',
+                  cursor: hasInput && !isLoading ? 'pointer' : 'not-allowed',
+                  transition: 'all 0.15s ease',
+                  flexShrink: 0,
+                }}
+              >
+                {isLoading
+                  ? <Loader2 size={14} style={{ animation: 'rin-spin 1s linear infinite' }} />
+                  : <ArrowUp size={15} strokeWidth={2.5} />
+                }
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Suggestions dropdown BELOW the input ── */}
+      {showSuggestions && filtered.length > 0 && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 100,
+          background: 'rgba(255,255,255,0.95)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          border: '1px solid rgba(228,221,205,0.8)',
+          borderRadius: '14px',
+          boxShadow: '0 8px 24px rgba(114,106,90,0.10)',
+          overflow: 'hidden',
+          animation: 'rin-dropdown-down 0.18s cubic-bezier(0.16,1,0.3,1) both',
+        }}>
+          {filtered.slice(0, 7).map((s, i) => (
+            <button
+              key={i}
+              onMouseDown={() => handleSuggestionClick(s)}
+              className="rin-suggestion-item"
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                width: '100%', padding: '11px 16px',
+                background: 'transparent', border: 'none',
+                borderBottom: i < Math.min(filtered.length, 7) - 1 ? '0.666px solid rgba(228,221,205,0.4)' : 'none',
+                cursor: 'pointer', textAlign: 'left',
+                fontSize: '14px', color: 'rgb(26,25,25)',
+                fontFamily: "'DM Sans', system-ui, sans-serif",
+                transition: 'background 0.1s',
+              }}
+            >
+              <Search size={14} color="rgb(160,155,145)" style={{ flexShrink: 0 }} />
+              <span>{s}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [analysisContext, setAnalysisContext] = useState<AnalysisContext | null>(null);
-  const [chatId, setChatId] = useState<string>(() => getActiveChatId() || createNewChatId());
-
-  // Save messages to chat session whenever they change
-  useEffect(() => {
-    if (messages.length === 0) return;
-    const firstUserMsg = messages.find((m) => m.role === 'user');
-    const title = firstUserMsg ? extractChatTitle(firstUserMsg.content) : 'New Analysis';
-    const session = getChatSession(chatId);
-    saveChatSession({
-      id: chatId,
-      title,
-      messages: messages.map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        timestamp: m.timestamp.getTime(),
-        riskData: m.riskData,
-      })),
-      createdAt: session?.createdAt || Date.now(),
-      updatedAt: Date.now(),
-    });
-    setActiveChatId(chatId);
-  }, [messages, chatId]);
-
-  // Listen for new-chat and load-chat events from sidebar
-  const startNewChat = useCallback(() => {
-    const newId = createNewChatId();
-    setChatId(newId);
-    setMessages([]);
-    setHasStarted(false);
-    setAnalysisContext(null);
-    setActiveChatId(newId);
-  }, []);
-
-  const loadChat = useCallback((id: string) => {
-    const session = getChatSession(id);
-    if (!session) return;
-    setChatId(session.id);
-    setMessages(
-      session.messages.map((m) => ({
-        ...m,
-        timestamp: new Date(m.timestamp),
-      }))
-    );
-    setHasStarted(session.messages.length > 0);
-    setActiveChatId(session.id);
-  }, []);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    const handleNew = () => startNewChat();
-    const handleLoad = (e: Event) => {
-      const detail = (e as CustomEvent<string>).detail;
-      loadChat(detail);
-    };
-    window.addEventListener('rin-new-chat', handleNew);
-    window.addEventListener('rin-load-chat', handleLoad);
-    return () => {
-      window.removeEventListener('rin-new-chat', handleNew);
-      window.removeEventListener('rin-load-chat', handleLoad);
-    };
-  }, [startNewChat, loadChat]);
-
-  // Load active chat on mount
-  useEffect(() => {
-    const activeId = getActiveChatId();
-    if (activeId) {
-      const session = getChatSession(activeId);
-      if (session && session.messages.length > 0) {
-        setChatId(session.id);
-        setMessages(
-          session.messages.map((m) => ({
-            ...m,
-            timestamp: new Date(m.timestamp),
-          }))
-        );
-        setHasStarted(true);
-      }
-    }
-  }, []);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Auto-resize textarea
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 150) + 'px';
-    }
-  }, [input]);
+  const sendMessage = useCallback(async (userText: string) => {
+    const text = userText.trim();
+    if (!text || isLoading) return;
 
-  const handleSend = async (text?: string) => {
-    const messageText = text || input.trim();
-    if (!messageText && !selectedFile) return;
+    const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: text };
+    const asstId = crypto.randomUUID();
+    const asstMsg: Message = { id: asstId, role: 'assistant', content: '', isStreaming: true };
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: selectedFile 
-        ? `${messageText}\n\n📎 Attached: ${selectedFile.name}` 
-        : messageText,
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
+    setMessages(prev => [...prev, userMsg, asstMsg]);
     setInput('');
-    setSelectedFile(null);
-    setHasStarted(true);
     setIsLoading(true);
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const history = [...messages, userMsg].map(m => ({ role: m.role, content: m.content }));
+
     try {
-      // Check if this is an intervention request
-      const lowerText = messageText.toLowerCase();
-      const isIntervention = lowerText.includes('intervention') || lowerText.includes('suggest') || 
-        lowerText.includes('strategy') || lowerText.includes('action');
-
-      if (isIntervention && analysisContext) {
-        // Call intervention endpoint
-        const res = await fetch('/api/intervention', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            summary: analysisContext.summary,
-            riskScore: analysisContext.riskScore,
-          }),
-        });
-        const result = await res.json();
-        const aiMessage = formatInterventionResponse(result.data);
-        setMessages(prev => [...prev, aiMessage]);
-      } else {
-        // Call main analyze endpoint
-        const conversationHistory = messages.map(m => ({
-          role: m.role,
-          content: m.content,
-        }));
-
-        const res = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: messageText,
-            conversationHistory,
-            analysisContext,
-          }),
-        });
-        const result = await res.json();
-        const aiMessage = formatAPIResponse(result);
-
-        // Store analysis context for follow-ups
-        if (result.type === 'analysis' && result.data?.risk) {
-          setAnalysisContext({
-            summary: result.data.summary,
-            riskScore: result.data.risk.riskScore,
-            factors: result.data.factors?.map((f: { name: string }) => f.name) || [],
-          });
-
-          // Persist to store for Overview page
-          saveAnalysis({
-            query: messageText,
-            summary: result.data.summary,
-            riskScore: result.data.risk.riskScore,
-            category: result.data.risk.category,
-            confidence: result.data.risk.confidence,
-            factors: result.data.factors || [],
-          });
-        }
-
-        setMessages(prev => [...prev, aiMessage]);
+      await streamC1(history, (acc) => {
+        setMessages(prev => prev.map(m => m.id === asstId ? { ...m, content: acc } : m));
+      }, controller.signal);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name !== 'AbortError') {
+        setMessages(prev => prev.map(m => m.id === asstId ? { ...m, content: 'Sorry, something went wrong. Please try again.' } : m));
       }
-    } catch (error) {
-      console.error('API error:', error);
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'I encountered an issue processing your request. Please try again with more details about the student.',
-        timestamp: new Date(),
-      }]);
     } finally {
+      setMessages(prev => prev.map(m => m.id === asstId ? { ...m, isStreaming: false } : m));
       setIsLoading(false);
     }
-  };
+  }, [messages, isLoading]);
 
-  // Format analysis API response into a chat message
-  const formatAPIResponse = (result: { type: string; data: Record<string, unknown>; error?: string }): Message => {
-    const { type, data } = result;
-
-    if (type === 'analysis') {
-      const d = data as { summary: string; risk: { riskScore: number; category: string; confidence: number }; factors: { name: string; impactPercentage: number; trend: string; description: string }[]; plainLanguage: string };
-      const factorLines = d.factors
-        .map((f, i) => `${i + 1}. **${f.name} — ${f.impactPercentage}% impact** ${f.trend === 'down' ? '↓' : f.trend === 'up' ? '↑' : '○'}\n   ${f.description}`)
-        .join('\n\n');
-
-      return {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: `${d.plainLanguage}\n\n📊 **Contributing Factors (Ranked by Impact)**\n\n${factorLines}\n\n---\n\n💡 Would you like me to:\n• Explain the contributing factors in more detail?\n• Suggest intervention strategies?\n• Generate a parent-facing summary?\n• Simulate improvement scenarios?`,
-        timestamp: new Date(),
-        riskData: {
-          riskScore: d.risk.riskScore,
-          category: d.risk.category,
-          confidence: d.risk.confidence,
-          factors: d.factors.map(f => f.name),
-        },
-      };
-    }
-
-    if (type === 'scenario') {
-      const d = data as { scenarios: { title: string; changes: string; predictedRiskScore: number; impact: number; likelihood: string }[]; keyInsight: string };
-      const scenarioLines = d.scenarios
-        .map((s, i) => `**Scenario ${i + 1}: ${s.title}**\n→ Predicted risk: **${s.predictedRiskScore}%** ${s.predictedRiskScore < 40 ? '✅' : '⚠️'}\n→ Impact: ${s.impact} points — *${s.changes}*`)
-        .join('\n\n');
-
-      return {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: `🔮 **Improvement Scenario Simulation**\n\n---\n\n${scenarioLines}\n\n---\n\n📌 **Key Insight:** ${d.keyInsight}`,
-        timestamp: new Date(),
-      };
-    }
-
-    if (type === 'general') {
-      const d = data as { response: string };
-      return {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: d.response,
-        timestamp: new Date(),
-      };
-    }
-
-    if (type === 'followup') {
-      const d = data as { response: string; type: string };
-      return {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: d.response,
-        timestamp: new Date(),
-      };
-    }
-
-    // Fallback
-    return {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant',
-      content: String((data as { summary?: string; response?: string }).response || (data as { summary?: string }).summary || 'I can help you with that! Please try rephrasing your question.'),
-      timestamp: new Date(),
-    };
-  };
-
-  // Format intervention API response
-  const formatInterventionResponse = (data: { interventions: { title: string; priority: string; description: string; actionSteps: string[]; expectedImpact: string }[]; parentSummary: string }): Message => {
-    const grouped = {
-      High: data.interventions.filter(i => i.priority === 'High'),
-      Medium: data.interventions.filter(i => i.priority === 'Medium'),
-      Low: data.interventions.filter(i => i.priority === 'Low'),
-    };
-
-    let content = 'Here are my recommended interventions, prioritized by expected impact:\n\n';
-
-    if (grouped.High.length > 0) {
-      content += '🔴 **High Priority**\n\n';
-      grouped.High.forEach((iv, i) => {
-        content += `**${i + 1}. ${iv.title}**\n`;
-        iv.actionSteps.forEach(step => { content += `• ${step}\n`; });
-        content += `*${iv.expectedImpact}*\n\n`;
-      });
-    }
-
-    if (grouped.Medium.length > 0) {
-      content += '🟡 **Medium Priority**\n\n';
-      grouped.Medium.forEach((iv, i) => {
-        content += `**${grouped.High.length + i + 1}. ${iv.title}**\n`;
-        iv.actionSteps.forEach(step => { content += `• ${step}\n`; });
-        content += `*${iv.expectedImpact}*\n\n`;
-      });
-    }
-
-    if (grouped.Low.length > 0) {
-      content += '🟢 **Low Priority**\n\n';
-      grouped.Low.forEach((iv, i) => {
-        content += `**${grouped.High.length + grouped.Medium.length + i + 1}. ${iv.title}**\n`;
-        iv.actionSteps.forEach(step => { content += `• ${step}\n`; });
-        content += `*${iv.expectedImpact}*\n\n`;
-      });
-    }
-
-    content += `---\n\n📄 **Parent Summary:**\n${data.parentSummary}`;
-
-    return {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant',
-      content,
-      timestamp: new Date(),
-    };
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) setSelectedFile(file);
-  };
+  const isEmpty = messages.length === 0;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] sm:h-[calc(100vh-5rem)] -mb-8 sm:-mb-12 -mx-3 sm:-mx-6 lg:-mx-8">
-      {/* Main Content */}
-      {!hasStarted ? (
-        <div className="flex-1 min-h-0 flex flex-col">
-          <div className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 flex flex-col justify-center items-center px-2 pb-24 sm:pb-32">
-            {/* Greeting */}
-            <div className="text-center mb-6 sm:mb-10">
-              <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-[var(--color-text)] mb-1 sm:mb-2">
-                Hi there, Educator 👋
+    <ThemeProvider {...RIN_THEME}>
+      <style>{`
+        @keyframes rin-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        @keyframes rin-dropdown-down {
+          from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+          to   { opacity: 1; transform: translateY(0)   scale(1); }
+        }
+        @keyframes rin-dropdown-up {
+          from { opacity: 0; transform: translateY(6px) scale(0.98); }
+          to   { opacity: 1; transform: translateY(0)  scale(1); }
+        }
+
+        .rin-glass-input {
+          filter: drop-shadow(0 4px 20px rgba(114,106,90,0.08));
+          transition: filter 0.25s;
+        }
+        .rin-glass-input:focus-within {
+          filter: drop-shadow(0 6px 28px rgba(128,5,50,0.07));
+        }
+
+        .rin-toolbar-btn:hover { background: rgb(243,240,236) !important; color: rgb(26,25,25) !important; }
+        .rin-tool-item:hover { background: rgb(243,240,236) !important; }
+        .rin-suggestion-item:hover { background: rgb(250,250,249) !important; }
+        .rin-send-btn:hover:not(:disabled) { background: #800532 !important; transform: scale(1.05); }
+
+        .rin-chip {
+          transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+        }
+        .rin-chip:hover {
+          background: white !important;
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(0,0,0,0.08) !important;
+        }
+
+        .rin-chat-scroll::-webkit-scrollbar { width: 4px; }
+        .rin-chat-scroll::-webkit-scrollbar-thumb { background: rgba(114,106,90,0.25); border-radius: 9999px; }
+      `}</style>
+
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'rgb(250,250,249)' }}>
+
+        {/* ── Messages or Welcome ── */}
+        <div className="rin-chat-scroll" style={{ flex: 1, overflowY: 'auto', padding: isEmpty ? '0' : '24px 24px 0' }}>
+          {isEmpty ? (
+            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 16px 80px' }}>
+
+              {/* Heading */}
+              <h1 style={{
+                fontSize: '36px', fontWeight: 400, color: 'rgb(26,25,25)',
+                fontFamily: "'DM Sans', system-ui, sans-serif",
+                margin: '0 0 28px', textAlign: 'center', lineHeight: '1.1',
+              }}>
+                What can I help with today?
               </h1>
-              <h2 className="text-xl sm:text-3xl md:text-4xl font-bold">
-                <span style={{
-                  background: 'linear-gradient(135deg, #F59E0B 0%, #8B5CF6 50%, #3B82F6 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                }}>
-                  What would you like to know?
-                </span>
-              </h2>
-            </div>
 
-            {/* Suggestion Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full max-w-2xl mb-6 sm:mb-8">
-              {suggestedPrompts.map((prompt, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleSend(prompt.text)}
-                  className="text-left p-3 sm:p-4 rounded-xl border border-[var(--color-border)] bg-white hover:border-[var(--color-primary)] hover:shadow-md transition-all duration-200 group active:scale-[0.98]"
-                >
-                  <p className="text-xs sm:text-sm text-[var(--color-text)] leading-relaxed mb-2 sm:mb-3">
-                    {prompt.text}
-                  </p>
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gray-100 group-hover:bg-blue-100 flex items-center justify-center transition-colors overflow-hidden">
-                    <img src={prompt.icon} alt="" style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* Conversation State — w-screen trick breaks out of max-w container so scrollbar is at viewport edge */
-        <div className="flex-1 min-h-0 overflow-y-auto thin-scrollbar py-4 sm:py-8 pb-28 sm:pb-32 w-screen relative left-1/2 -translate-x-1/2">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6">
-            <div className="space-y-6">
-              {messages.map((message) => (
-                <div key={message.id} className="animate-fade-in">
-                  {message.role === 'user' ? (
-                    /* User Message */
-                    <div className="flex justify-end">
-                      <div className="max-w-[90%] sm:max-w-[85%] bg-[var(--color-primary)] text-white rounded-2xl rounded-br-md px-3 sm:px-5 py-2 sm:py-3">
-                        <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    /* AI Message */
-                    <div className="flex gap-2 sm:gap-3">
-                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0 mt-1">
-                        <span className="text-white text-[8px] sm:text-[10px] font-bold">RIN</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="bg-white border border-[var(--color-border)] rounded-2xl rounded-tl-md px-3 sm:px-5 py-3 sm:py-4 shadow-sm">
-                          {/* Risk data card if present */}
-                          {message.riskData && (
-                            <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-gray-50 rounded-xl flex items-center gap-3 sm:gap-6">
-                              <CircularProgress
-                                value={message.riskData.riskScore}
-                                size={60}
-                                strokeWidth={6}
-                                label="Risk"
-                                animated
-                              />
-                              <div>
-                                <span className={`inline-block px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold mb-1 ${
-                                  message.riskData.category === 'Critical Risk' ? 'bg-red-200 text-red-900' :
-                                  message.riskData.category === 'At Risk' ? 'bg-red-100 text-red-700' :
-                                  message.riskData.category === 'Moderate Risk' ? 'bg-amber-100 text-amber-700' :
-                                  'bg-green-100 text-green-700'
-                                }`}>
-                                  {message.riskData.category === 'Critical Risk' ? '🔴' :
-                                   message.riskData.category === 'At Risk' ? '⚠️' :
-                                   message.riskData.category === 'Moderate Risk' ? '🟡' :
-                                   '✅'} {message.riskData.category}
-                                </span>
-                                <p className="text-xs sm:text-sm text-[var(--color-text-light)]">
-                                  Confidence: {message.riskData.confidence}%
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                          <div className="text-xs sm:text-sm text-[var(--color-text)] leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none"
-                            dangerouslySetInnerHTML={{ 
-                              __html: message.content
-                                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                                .replace(/\n/g, '<br/>')
-                                .replace(/• /g, '&bull; ')
-                            }}
-                          />
-                        </div>
-                        
-                        {/* Action buttons after AI assessment */}
-                        {message.riskData && (
-                          <div className="flex gap-1.5 sm:gap-2 mt-2 sm:mt-3 flex-wrap">
-                            <Link href="/dashboard/overview">
-                              <button className="px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-medium bg-[var(--color-primary)] text-white rounded-full hover:opacity-90 transition-opacity active:scale-95">
-                                📊 Full Breakdown
-                              </button>
-                            </Link>
-                            <button 
-                              onClick={() => handleSend("Suggest intervention strategies")}
-                              className="px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-medium border border-[var(--color-border)] text-[var(--color-text)] rounded-full hover:bg-gray-50 transition-colors active:scale-95"
-                            >
-                              💡 Interventions
-                            </button>
-                            <button 
-                              onClick={() => handleSend("Simulate improvement scenarios")}
-                              className="px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-medium border border-[var(--color-border)] text-[var(--color-text)] rounded-full hover:bg-gray-50 transition-colors active:scale-95"
-                            >
-                              🔮 Scenarios
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+              {/* Input */}
+              <div style={{ maxWidth: '760px', width: '100%', position: 'relative' }}>
+                <InputBox value={input} onChange={setInput} onSend={sendMessage} isLoading={isLoading} hasMessages={false} />
+              </div>
 
-              {/* Loading indicator */}
-              {isLoading && (
-                <div className="flex gap-2 sm:gap-3 animate-fade-in">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-[8px] sm:text-[10px] font-bold">RIN</span>
-                  </div>
-                  <div className="bg-white border border-[var(--color-border)] rounded-2xl rounded-tl-md px-4 sm:px-5 py-3 sm:py-4 shadow-sm">
-                    <div className="flex gap-1.5">
-                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div ref={messagesEndRef} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Input Area - Fixed at bottom */}
-      <div className="sticky bottom-0 w-full bg-gradient-to-t from-[var(--color-bg)] via-[var(--color-bg)] to-transparent pt-4 pb-3 sm:pt-6 sm:pb-6">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6">
-          <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-lg hover:shadow-xl transition-shadow">
-            {/* Selected file indicator */}
-            {selectedFile && (
-              <div className="px-4 pt-3">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs">
-                  <span>📎</span>
-                  <span className="text-[var(--color-text)]">{selectedFile.name}</span>
-                  <button 
-                    onClick={() => setSelectedFile(null)}
-                    className="text-gray-400 hover:text-red-500"
+              {/* Chips */}
+              <div style={{
+                maxWidth: '760px', width: '100%', marginTop: '14px',
+                display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px',
+              }}>
+                {STARTERS.map(s => (
+                  <button
+                    key={s.label}
+                    className="rin-chip"
+                    onClick={() => sendMessage(s.prompt)}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+                      padding: '9px 12px',
+                      background: 'rgba(255,255,255,0.8)',
+                      backdropFilter: 'blur(8px)',
+                      WebkitBackdropFilter: 'blur(8px)',
+                      border: '0.666px solid rgb(228,221,205)',
+                      borderRadius: '16px',
+                      cursor: 'pointer',
+                      fontSize: '13px', fontWeight: 500, color: 'rgb(26,25,25)',
+                      fontFamily: "'DM Sans', system-ui, sans-serif",
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                    }}
                   >
-                    ✕
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <s.icon size={14} color={s.color} />
+                    </span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label}</span>
                   </button>
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-end gap-1.5 sm:gap-2 p-2 sm:p-3">
-              {/* Textarea */}
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Describe a student's situation..."
-                rows={1}
-                className="flex-1 px-2 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm resize-none border-none outline-none bg-transparent text-[var(--color-text)] placeholder:text-gray-400"
-                style={{ maxHeight: '120px' }}
-              />
-
-              {/* Action buttons */}
-              <div className="flex items-center gap-1 sm:gap-2 pb-0.5 sm:pb-1">
-                {/* Attach file button */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  accept=".csv,.pdf,.xlsx,.txt"
-                  onChange={handleFileChange}
-                />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-[var(--color-primary)] hover:bg-gray-100 transition-all"
-                  title="Attach file"
-                >
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                  </svg>
-                </button>
-
-                {/* Dictate button */}
-                <DictateButton
-                  onText={(text) => setInput(text)}
-                  disabled={isLoading}
-                />
-
-                {/* Send button */}
-                <button
-                  onClick={() => handleSend()}
-                  disabled={(!input.trim() && !selectedFile) || isLoading}
-                  className="h-8 sm:h-9 px-3 sm:px-5 rounded-full bg-[var(--color-primary)] text-white text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2 hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
-                >
-                  <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                  </svg>
-                  <span className="hidden sm:inline">Send</span>
-                  <span className="sm:hidden">↑</span>
-                </button>
+                ))}
               </div>
             </div>
-          </div>
-
-          <p className="text-[10px] sm:text-xs text-center text-gray-400 mt-2 sm:mt-3">
-            RIN AI provides insights to support — not replace — your professional judgment.
-          </p>
+          ) : (
+            <div style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '16px' }}>
+              {messages.map(m =>
+                m.role === 'user'
+                  ? <UserBubble key={m.id} content={m.content} />
+                  : <AssistantBubble key={m.id} content={m.content} isStreaming={m.isStreaming ?? false} />
+              )}
+              <div ref={bottomRef} />
+            </div>
+          )}
         </div>
+
+        {/* ── Sticky footer input (active thread) ── */}
+        {!isEmpty && (
+          <div style={{ padding: '10px 24px 20px', background: 'rgb(250,250,249)' }}>
+            <div style={{ maxWidth: '800px', margin: '0 auto', position: 'relative' }}>
+              <InputBox value={input} onChange={setInput} onSend={sendMessage} isLoading={isLoading} hasMessages={true} />
+              <p style={{ fontSize: '11px', color: 'rgb(160,155,145)', textAlign: 'center', marginTop: '8px' }}>
+                RIN supports your judgment — always verify with school records.
+              </p>
+            </div>
+          </div>
+        )}
+
       </div>
-    </div>
+    </ThemeProvider>
   );
 }

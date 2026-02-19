@@ -1,240 +1,138 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { clearAnalyses, getAnalyses } from '@/lib/analysisStore';
+import { useState } from 'react';
+import { Setting2, User, Export, Trash, InfoCircle } from 'iconsax-reactjs';
+
+interface Profile {
+  name: string;
+  school: string;
+  role: string;
+}
+
+function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div style={{ backgroundColor: 'white', borderRadius: 14, border: '0.67px solid rgb(228,221,205)', overflow: 'hidden', marginBottom: 16 }}>
+      <div style={{ padding: '16px 24px', borderBottom: '0.67px solid rgb(228,221,205)', display: 'flex', alignItems: 'center', gap: 10 }}>
+        {icon}
+        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'rgb(26,25,25)', letterSpacing: '-0.3px' }}>{title}</h3>
+      </div>
+      <div style={{ padding: '20px 24px' }}>{children}</div>
+    </div>
+  );
+}
+
+function FieldRow({ label, hint, last, children }: { label: string; hint?: string; last?: boolean; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 16, alignItems: 'start', paddingBottom: last ? 0 : 16, marginBottom: last ? 0 : 16, borderBottom: last ? 'none' : '0.67px solid rgb(246,240,228)' }}>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'rgb(26,25,25)', marginBottom: 2 }}>{label}</div>
+        {hint && <div style={{ fontSize: 11, color: 'rgb(114,106,90)' }}>{hint}</div>}
+      </div>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+const inputStyle = {
+  width: '100%',
+  padding: '10px 12px',
+  borderRadius: 9,
+  border: '0.67px solid rgb(228,221,205)',
+  fontSize: 14,
+  fontFamily: "'DM Sans', system-ui, sans-serif",
+  outline: 'none',
+  backgroundColor: 'white',
+  color: 'rgb(26,25,25)',
+  boxSizing: 'border-box' as const,
+};
 
 export default function SettingsPage() {
-  const [name, setName] = useState('Educator');
-  const [email, setEmail] = useState('');
-  const [mounted, setMounted] = useState(false);
-  const [analysisCount, setAnalysisCount] = useState(0);
-  const [cleared, setCleared] = useState(false);
+  const [profile, setProfile] = useState<Profile>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('rin_profile');
+      return stored ? JSON.parse(stored) : { name: '', school: '', role: 'educator' };
+    }
+    return { name: '', school: '', role: 'educator' };
+  });
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-    // Load saved profile
-    const savedName = localStorage.getItem('rin_profile_name');
-    const savedEmail = localStorage.getItem('rin_profile_email');
-    if (savedName) setName(savedName);
-    if (savedEmail) setEmail(savedEmail);
-    setAnalysisCount(getAnalyses().length);
-  }, []);
-
-  const handleSave = () => {
-    localStorage.setItem('rin_profile_name', name);
-    localStorage.setItem('rin_profile_email', email);
+  const save = () => {
+    localStorage.setItem('rin_profile', JSON.stringify(profile));
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setTimeout(() => setSaved(false), 2200);
   };
 
-  const handleClear = () => {
-    if (window.confirm('Are you sure you want to clear all analysis history? This cannot be undone.')) {
-      clearAnalyses();
-      setAnalysisCount(0);
-      setCleared(true);
-      setTimeout(() => setCleared(false), 2000);
-    }
-  };
-
-  const handleExport = () => {
-    const analyses = getAnalyses();
-    const blob = new Blob([JSON.stringify(analyses, null, 2)], { type: 'application/json' });
+  const exportData = () => {
+    const data = {
+      profile: JSON.parse(localStorage.getItem('rin_profile') ?? '{}'),
+      exportedAt: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = `rin-analyses-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
+    a.href = url; a.download = 'rin-export.json'; a.click();
     URL.revokeObjectURL(url);
   };
 
-  if (!mounted) return null;
+  const wipeData = () => {
+    if (!confirm('This will clear all local profile data. Continue?')) return;
+    localStorage.removeItem('rin_profile');
+    window.location.reload();
+  };
 
   return (
-    <div style={{ maxWidth: '680px' }}>
-      <h1
-        style={{
-          fontFamily: "Georgia, 'Times New Roman', Times, serif",
-          fontWeight: 400,
-          fontSize: '36px',
-          color: '#292929',
-          margin: '0 0 8px',
-        }}
-      >
-        Settings
-      </h1>
-      <p style={{ fontSize: '15px', color: '#72726e', margin: '0 0 40px' }}>
-        Manage your profile and preferences.
-      </p>
+    <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", maxWidth: 680, margin: '0 auto' }}>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: 'rgb(26,25,25)', margin: 0, letterSpacing: '-0.8px' }}>Settings</h1>
+        <p style={{ fontSize: 14, color: 'rgb(114,106,90)', margin: '4px 0 0' }}>Manage your profile and application data</p>
+      </div>
 
-      {/* ── Profile ── */}
-      <section style={{ marginBottom: '40px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#292929', margin: '0 0 20px' }}>
-          Profile
-        </h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#72726e', marginBottom: '6px' }}>
-              Display Name
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                fontSize: '15px',
-                borderRadius: '10px',
-                border: '1px solid #e8e8e5',
-                outline: 'none',
-                color: '#292929',
-                background: '#fff',
-                transition: 'border-color 0.15s',
-              }}
-              onFocus={(e) => (e.target.style.borderColor = 'var(--color-primary)')}
-              onBlur={(e) => (e.target.style.borderColor = '#e8e8e5')}
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#72726e', marginBottom: '6px' }}>
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="educator@school.edu"
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                fontSize: '15px',
-                borderRadius: '10px',
-                border: '1px solid #e8e8e5',
-                outline: 'none',
-                color: '#292929',
-                background: '#fff',
-                transition: 'border-color 0.15s',
-              }}
-              onFocus={(e) => (e.target.style.borderColor = 'var(--color-primary)')}
-              onBlur={(e) => (e.target.style.borderColor = '#e8e8e5')}
-            />
-          </div>
-          <div>
-            <button
-              onClick={handleSave}
-              style={{
-                padding: '10px 24px',
-                fontSize: '14px',
-                fontWeight: 500,
-                borderRadius: '10px',
-                border: 'none',
-                background: 'var(--color-primary)',
-                color: '#fff',
-                cursor: 'pointer',
-                transition: 'opacity 0.15s',
-              }}
-            >
-              {saved ? '✓ Saved!' : 'Save Profile'}
-            </button>
-          </div>
-        </div>
-      </section>
+      {/* Profile */}
+      <Section title="Profile" icon={<User size={16} color="#27AE60" variant="Bulk" />}>
+        <FieldRow label="Full Name">
+          <input value={profile.name} onChange={e => setProfile(s => ({ ...s, name: e.target.value }))} placeholder="Your name" style={inputStyle} />
+        </FieldRow>
+        <FieldRow label="School / Institution">
+          <input value={profile.school} onChange={e => setProfile(s => ({ ...s, school: e.target.value }))} placeholder="e.g. Lincoln High School" style={inputStyle} />
+        </FieldRow>
+        <FieldRow label="Role" last>
+          <select value={profile.role} onChange={e => setProfile(s => ({ ...s, role: e.target.value }))} style={inputStyle}>
+            <option value="educator">Educator / Teacher</option>
+            <option value="counselor">School Counselor</option>
+            <option value="administrator">Administrator</option>
+            <option value="advisor">Student Advisor</option>
+          </select>
+        </FieldRow>
+      </Section>
 
-      {/* Divider */}
-      <div style={{ height: '1px', background: '#f0f0ee', marginBottom: '40px' }} />
-
-      {/* ── Data Management ── */}
-      <section style={{ marginBottom: '40px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#292929', margin: '0 0 8px' }}>
-          Data Management
-        </h2>
-        <p style={{ fontSize: '14px', color: '#72726e', margin: '0 0 20px' }}>
-          You have <strong style={{ color: '#292929' }}>{analysisCount}</strong> saved {analysisCount === 1 ? 'analysis' : 'analyses'}.
-        </p>
-
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <button
-            onClick={handleExport}
-            disabled={analysisCount === 0}
-            style={{
-              padding: '10px 20px',
-              fontSize: '14px',
-              fontWeight: 500,
-              borderRadius: '10px',
-              border: '1px solid #e8e8e5',
-              background: '#fff',
-              color: analysisCount === 0 ? '#c0c0bc' : '#292929',
-              cursor: analysisCount === 0 ? 'not-allowed' : 'pointer',
-              transition: 'all 0.15s',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Export as JSON
+      {/* Data Management */}
+      <Section title="Data Management" icon={<Export size={16} color="#E67E22" variant="Bulk" />}>
+        <FieldRow label="Export Profile" hint="Download a JSON backup of your settings">
+          <button onClick={exportData} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', backgroundColor: 'rgba(230,126,22,0.08)', border: '0.67px solid rgba(230,126,22,0.2)', borderRadius: 9, fontSize: 13, fontWeight: 600, color: '#C87A0A', cursor: 'pointer', fontFamily: 'inherit' }}>
+            <Export size={15} color="#C87A0A" /> Export rin-export.json
           </button>
-
-          <button
-            onClick={handleClear}
-            disabled={analysisCount === 0}
-            style={{
-              padding: '10px 20px',
-              fontSize: '14px',
-              fontWeight: 500,
-              borderRadius: '10px',
-              border: '1px solid #fecaca',
-              background: analysisCount === 0 ? '#fafafa' : '#fff5f5',
-              color: analysisCount === 0 ? '#c0c0bc' : '#dc2626',
-              cursor: analysisCount === 0 ? 'not-allowed' : 'pointer',
-              transition: 'all 0.15s',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="3 6 5 6 21 6" />
-              <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-              <path d="M10 11v6" />
-              <path d="M14 11v6" />
-            </svg>
-            {cleared ? '✓ Cleared!' : 'Clear All Data'}
+        </FieldRow>
+        <FieldRow label="Clear Local Data" hint="Remove all locally stored profile data" last>
+          <button onClick={wipeData} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', backgroundColor: 'rgba(192,57,43,0.08)', border: '0.67px solid rgba(192,57,43,0.15)', borderRadius: 9, fontSize: 13, fontWeight: 600, color: '#C0392B', cursor: 'pointer', fontFamily: 'inherit' }}>
+            <Trash size={15} color="#C0392B" /> Clear Local Data
           </button>
-        </div>
-      </section>
+        </FieldRow>
+      </Section>
 
-      {/* Divider */}
-      <div style={{ height: '1px', background: '#f0f0ee', marginBottom: '40px' }} />
-
-      {/* ── About ── */}
-      <section>
-        <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#292929', margin: '0 0 16px' }}>
-          About RIN
-        </h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f5f5f4' }}>
-            <span style={{ fontSize: '14px', color: '#72726e' }}>Version</span>
-            <span style={{ fontSize: '14px', color: '#292929', fontWeight: 500 }}>1.0.0</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f5f5f4' }}>
-            <span style={{ fontSize: '14px', color: '#72726e' }}>Model</span>
-            <span style={{ fontSize: '14px', color: '#292929', fontWeight: 500 }}>Grok AI</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
-            <span style={{ fontSize: '14px', color: '#72726e' }}>Built With</span>
-            <span style={{ fontSize: '14px', color: '#292929', fontWeight: 500 }}>Next.js + TypeScript</span>
-          </div>
+      {/* About */}
+      <Section title="About RIN" icon={<InfoCircle size={16} color="rgb(114,106,90)" />}>
+        <div style={{ fontSize: 13, color: 'rgb(114,106,90)', lineHeight: 1.7 }}>
+          <b style={{ color: 'rgb(26,25,25)' }}>Responsible Insight Navigator</b> — AI-powered early warning system for K-12 educators.<br />
+          Version 1.0
         </div>
-        <p style={{ fontSize: '12px', color: '#b0b0ac', marginTop: '24px' }}>
-          RIN AI provides insights to support — not replace — your professional judgment.
-        </p>
-      </section>
+      </Section>
+
+      {/* Save */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button onClick={save} style={{ padding: '11px 28px', backgroundColor: '#800532', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, color: 'white', cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '-0.2px' }}>
+          {saved ? 'Saved!' : 'Save Settings'}
+        </button>
+      </div>
     </div>
   );
 }

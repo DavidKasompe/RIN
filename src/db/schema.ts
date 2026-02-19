@@ -1,0 +1,147 @@
+import { pgTable, text, integer, real, timestamp, jsonb, boolean } from 'drizzle-orm/pg-core';
+
+// ─── Users (better-auth compatible) ─────────────────────────────────────────
+export const users = pgTable('users', {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    email: text('email').notNull().unique(),
+    emailVerified: boolean('email_verified').notNull().default(false),
+    image: text('image'),
+    role: text('role').notNull().default('educator'), // educator | administrator | advisor
+    school: text('school'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// ─── Sessions (better-auth) ──────────────────────────────────────────────────
+export const sessions = pgTable('sessions', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    token: text('token').notNull().unique(),
+    expiresAt: timestamp('expires_at').notNull(),
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// ─── Accounts (better-auth) ──────────────────────────────────────────────────
+export const accounts = pgTable('accounts', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    accountId: text('account_id').notNull(),
+    providerId: text('provider_id').notNull(),
+    accessToken: text('access_token'),
+    refreshToken: text('refresh_token'),
+    idToken: text('id_token'),
+    accessTokenExpiresAt: timestamp('access_token_expires_at'),
+    refreshTokenExpiresAt: timestamp('refresh_token_expires_at'),
+    scope: text('scope'),
+    password: text('password'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// ─── Verifications (better-auth) ─────────────────────────────────────────────
+export const verifications = pgTable('verifications', {
+    id: text('id').primaryKey(),
+    identifier: text('identifier').notNull(),
+    value: text('value').notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// ─── Students ────────────────────────────────────────────────────────────────
+export const students = pgTable('students', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+
+    // Identity
+    name: text('name').notNull(),
+    studentId: text('student_id').notNull(),
+    email: text('email'),
+    grade: text('grade').notNull(),
+    subject: text('subject'),
+
+    // Academic indicators
+    attendanceRate: real('attendance_rate').notNull().default(100),
+    gpa: real('gpa').notNull().default(4.0),
+    assignmentCompletion: real('assignment_completion').notNull().default(100),
+
+    // Behavioral indicators
+    behaviorReferrals: integer('behavior_referrals').notNull().default(0),
+    lateSubmissions: integer('late_submissions').notNull().default(0),
+
+    // Notes & tags
+    notes: text('notes'),
+    tags: jsonb('tags').$type<string[]>().default([]),
+
+    // Auto-computed from analyses
+    lastRiskScore: real('last_risk_score'),
+    lastRiskCategory: text('last_risk_category'), // Low | Moderate | At Risk | Critical
+    lastAnalyzedAt: timestamp('last_analyzed_at'),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// ─── Analyses ────────────────────────────────────────────────────────────────
+export const analyses = pgTable('analyses', {
+    id: text('id').primaryKey(),
+    studentId: text('student_id').notNull().references(() => students.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+
+    riskScore: real('risk_score').notNull(),
+    category: text('category').notNull(),
+    confidence: real('confidence').notNull(),
+    factors: jsonb('factors').$type<string[]>().notNull().default([]),
+    summary: text('summary').notNull(),
+    interventionPlan: text('intervention_plan'),
+    parentLetter: text('parent_letter'),
+
+    // Embedding vector stored as JSON array for RAG
+    embedding: jsonb('embedding').$type<number[]>(),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// ─── Chat Sessions ───────────────────────────────────────────────────────────
+export const chatSessions = pgTable('chat_sessions', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    studentId: text('student_id').references(() => students.id, { onDelete: 'set null' }),
+    title: text('title').notNull().default('New Chat'),
+    messages: jsonb('messages').$type<{ role: string; content: string; timestamp: string }[]>().notNull().default([]),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// ─── Calendar Events ─────────────────────────────────────────────────────────
+export const calendarEvents = pgTable('calendar_events', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    studentId: text('student_id').references(() => students.id, { onDelete: 'set null' }),
+
+    title: text('title').notNull(),
+    type: text('type').notNull().default('meeting'), // meeting | intervention | assessment | followup
+    date: timestamp('date').notNull(),
+    endDate: timestamp('end_date'),
+    notes: text('notes'),
+    completed: boolean('completed').notNull().default(false),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// ─── Workflow Runs ───────────────────────────────────────────────────────────
+export const workflowRuns = pgTable('workflow_runs', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    workflowId: text('workflow_id').notNull(), // e.g. 'risk-assessment', 'class-scan'
+    status: text('status').notNull().default('pending'), // pending | running | completed | failed
+    inputData: jsonb('input_data').$type<Record<string, unknown>>().default({}),
+    result: jsonb('result').$type<Record<string, unknown>>(),
+    error: text('error'),
+    triggeredAt: timestamp('triggered_at').notNull().defaultNow(),
+    completedAt: timestamp('completed_at'),
+});

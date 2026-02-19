@@ -1,35 +1,50 @@
 @import "tailwindcss";
 
-:root {
-  /* Salesforce-Inspired Color Palette */
-  --color-bg: #f3f4f6; /* Light gray background */
-  --color-primary: #2e7ef7; /* Primary blue */
-  --color-muted: #d1d5db; /* Muted gray for borders */
-  --color-cta: #3b82f6; /* Call-to-action blue */
-  --color-highlight: #f59e0b; /* Orange/amber highlight */
-  --color-card: #ffffff; /* White card backgrounds */
-  --color-text: #111827; /* Dark text */
-  --color-text-light: #6b7280; /* Gray text */
-  --color-white: #ffffff; /* Pure white */
-  --color-success: #10b981; /* Green for success */
-  --color-danger: #ef4444; /* Red for errors/warnings */
-  --color-chart-blue: #3b82f6; /* Chart blue */
-  --color-chart-orange: #f59e0b; /* Chart orange */
-  --color-chart-red: #ef4444; /* Chart red */
-  --color-chart-green: #84cc16; /* Chart green/lime */
-  --color-sidebar: #1e40af; /* Deep blue for sidebar */
-  --color-border: #e5e7eb; /* Light border color */
+/* ── RIN Brand Theme (Tailwind v4 @theme) ───────────────────────────────── */
+@theme {
+  /* Core brand palette */
+  --color-cream: #FAF3EC;
+  --color-cream-dark: #F5EDE2;
+  --color-cream-darker: #FBF7F5;
+  --color-burgundy: #800532;
+  --color-burgundy-dark: #600426;
+  --color-near-black: #230603;
+
+  /* Feature card backgrounds (warm, muted) */
+  --color-card-amber: #F8E8CA;
+  --color-card-blue: #E6EAF1;
+  --color-card-purple: #E8E2ED;
+  --color-card-pink: #F6E1E6;
+  --color-card-green: #E0E4CA;
+  --color-card-light-pink: #F2E6EA;
+
+  /* Testimonial alternating */
+  --color-testimonial-light: #F2E6EA;
+  --color-testimonial-mid: #800532;
+  --color-testimonial-dark: #600426;
+
+  /* Legacy dashboard colors (kept for backward compat) */
+  --color-bg: #f3f4f6;
+  --color-primary: #2e7ef7;
+  --color-muted: #d1d5db;
+  --color-cta: #3b82f6;
+  --color-highlight: #f59e0b;
+  --color-card: #ffffff;
+  --color-text: #111827;
+  --color-text-light: #6b7280;
+  --color-white: #ffffff;
+
+  /* Font family */
+  --font-sans: 'Inter', system-ui, sans-serif;
 }
 
-@theme inline {
-  --color-bg: var(--color-bg);
-  --color-primary: var(--color-primary);
-  --color-muted: var(--color-muted);
-  --color-cta: var(--color-cta);
-  --color-highlight: var(--color-highlight);
-  --color-card: var(--color-card);
-  --font-sans: "Inter", system-ui, sans-serif;
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
 }
+
+/* (legacy chart/sidebar vars no longer needed — dashboard uses Tailwind classes directly) */
 
 * {
   box-sizing: border-box;
@@ -40,6 +55,45 @@ body {
   color: var(--color-text);
   font-family: "Inter", system-ui, sans-serif;
   min-height: 100vh;
+}
+
+/* ── Landing page animations ─────────────────────────────────────────── */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 40s linear infinite;
+}
+
+@keyframes float-up {
+
+  0%,
+  100% {
+    transform: translateY(0px) rotate(var(--r, 0deg));
+  }
+
+  50% {
+    transform: translateY(-10px) rotate(var(--r, 0deg));
+  }
+}
+
+.animate-float {
+  animation: float-up 6s ease-in-out infinite;
+}
+
+.animate-float-slow {
+  animation: float-up 8s ease-in-out infinite 1s;
+}
+
+.animate-float-slower {
+  animation: float-up 10s ease-in-out infinite 2s;
 }
 
 /* Smooth scrolling */
@@ -71,6 +125,7 @@ html {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -82,6 +137,7 @@ html {
     opacity: 0;
     transform: translateX(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -89,10 +145,12 @@ html {
 }
 
 @keyframes pulse-soft {
+
   0%,
   100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.7;
   }

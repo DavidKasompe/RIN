@@ -9,6 +9,8 @@ export { default as ChatInterface } from './ChatInterface';
 export { default as TrendChart } from './TrendChart';
 export { default as RadarChart } from './RadarChart';
 export { default as ScenarioSimulator } from './ScenarioSimulator';
+export { ShimmerBar, ShimmerCircle, ShimmerCard, ShimmerStatCard, ShimmerTableRow } from './Shimmer';
 
 // Types
 export type { Message } from './ChatInterface';
+
