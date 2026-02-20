@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Setting2, User, Export, Trash, InfoCircle, Link2, Copy, EmptyWallet, Crown, TickCircle } from 'iconsax-reactjs';
@@ -5,6 +7,7 @@ import { useCustomer, CheckoutDialog } from 'autumn-js/react';
 import { getTeamDetailsAction } from '../../api/school/team';
 import { Loader2 } from 'lucide-react';
 import { useSession, authClient } from '@/lib/auth-client';
+import { Icon } from '@iconify/react';
 
 interface Profile {
   name: string;
@@ -167,7 +170,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'team' | 'billing'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'team' | 'integrations' | 'billing'>('profile');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
@@ -261,6 +264,11 @@ export default function SettingsPage() {
           onClick={() => setActiveTab('team')}
           style={{ padding: '0 0 12px 0', border: 'none', background: 'transparent', fontSize: 15, fontWeight: activeTab === 'team' ? 700 : 500, color: activeTab === 'team' ? '#800532' : 'rgb(114,106,90)', borderBottom: activeTab === 'team' ? '2px solid #800532' : '2px solid transparent', cursor: 'pointer', transition: 'all 0.2s' }}>
           School Team
+        </button>
+        <button
+          onClick={() => setActiveTab('integrations')}
+          style={{ padding: '0 0 12px 0', border: 'none', background: 'transparent', fontSize: 15, fontWeight: activeTab === 'integrations' ? 700 : 500, color: activeTab === 'integrations' ? '#800532' : 'rgb(114,106,90)', borderBottom: activeTab === 'integrations' ? '2px solid #800532' : '2px solid transparent', cursor: 'pointer', transition: 'all 0.2s' }}>
+          Integrations
         </button>
         <button
           onClick={() => setActiveTab('billing')}
@@ -374,6 +382,129 @@ export default function SettingsPage() {
               </div>
             </Section>
           )}
+        </div>
+      )}
+
+      {activeTab === 'integrations' && (
+        <div className="animate-in fade-in duration-300">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
+
+            {/* Google Classroom */}
+            <div style={{ backgroundColor: 'white', borderRadius: 14, border: '1px solid rgb(228,221,205)', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img src="https://www.gstatic.com/classroom/logo_square_rounded.svg" width={40} height={40} style={{ borderRadius: 8 }} alt="Classroom" />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'rgb(26,25,25)' }}>Google Classroom</h3>
+                    <p style={{ margin: 0, fontSize: 13, color: 'rgb(114,106,90)' }}>Assignments & Roster</p>
+                  </div>
+                </div>
+              </div>
+              <p style={{ margin: 0, fontSize: 14, color: 'rgb(114,106,90)', lineHeight: 1.5 }}>
+                Sync class schedules, assignments, and allow users to sign in with their Google accounts.
+              </p>
+              <div style={{ marginTop: 'auto', paddingTop: 16 }}>
+                <button style={{ width: '100%', padding: '10px', backgroundColor: 'white', border: '1px solid rgb(228,221,205)', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#800532', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <Link2 size={16} /> Connect Account
+                </button>
+              </div>
+            </div>
+
+            {/* PowerSchool SIS */}
+            <div style={{ backgroundColor: 'white', borderRadius: 14, border: '1px solid rgb(228,221,205)', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: 'white', border: '1px solid rgb(228,221,205)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img src="https://www.powerschool.com/wp-content/themes/powerschool/img/logo-cyan-p.svg" alt="PowerSchool" style={{ width: 24, height: 24 }} />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'rgb(26,25,25)' }}>PowerSchool SIS</h3>
+                    <p style={{ margin: 0, fontSize: 13, color: 'rgb(114,106,90)' }}>Attendance & Demographics</p>
+                  </div>
+                </div>
+              </div>
+              <p style={{ margin: 0, fontSize: 14, color: 'rgb(114,106,90)', lineHeight: 1.5 }}>
+                Import student demographics, attendance records, and disciplinary history automatically.
+              </p>
+              <div style={{ marginTop: 'auto', paddingTop: 16 }}>
+                <button style={{ width: '100%', padding: '10px', backgroundColor: 'white', border: '1px solid rgb(228,221,205)', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#800532', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <Link2 size={16} /> Connect Account
+                </button>
+              </div>
+            </div>
+
+            {/* Moodle LMS */}
+            <div style={{ backgroundColor: 'white', borderRadius: 14, border: '1px solid rgb(228,221,205)', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: 'rgba(235,112,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon icon="devicon:moodle" width="24" height="24" />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'rgb(26,25,25)' }}>Moodle LMS</h3>
+                    <p style={{ margin: 0, fontSize: 13, color: 'rgb(114,106,90)' }}>Courses & Grades</p>
+                  </div>
+                </div>
+              </div>
+              <p style={{ margin: 0, fontSize: 14, color: 'rgb(114,106,90)', lineHeight: 1.5 }}>
+                Sync student rosters, course assignments, and grades directly into RIN.
+              </p>
+              <div style={{ marginTop: 'auto', paddingTop: 16 }}>
+                <button style={{ width: '100%', padding: '10px', backgroundColor: 'white', border: '1px solid rgb(228,221,205)', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#800532', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <Link2 size={16} /> Connect Account
+                </button>
+              </div>
+            </div>
+
+            {/* Google Calendar */}
+            <div style={{ backgroundColor: 'white', borderRadius: 14, border: '1px solid rgb(228,221,205)', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: 'rgba(66,133,244,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon icon="logos:google-calendar" width="24" height="24" />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'rgb(26,25,25)' }}>Google Calendar</h3>
+                    <p style={{ margin: 0, fontSize: 13, color: 'rgb(114,106,90)' }}>Events & Meetings</p>
+                  </div>
+                </div>
+              </div>
+              <p style={{ margin: 0, fontSize: 14, color: 'rgb(114,106,90)', lineHeight: 1.5 }}>
+                Sync intervention meetings, parent-teacher conferences, and academic events.
+              </p>
+              <div style={{ marginTop: 'auto', paddingTop: 16 }}>
+                <button style={{ width: '100%', padding: '10px', backgroundColor: 'white', border: '1px solid rgb(228,221,205)', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#800532', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <Link2 size={16} /> Connect Account
+                </button>
+              </div>
+            </div>
+
+            {/* Notion Base */}
+            <div style={{ backgroundColor: 'white', borderRadius: 14, border: '1px solid rgb(228,221,205)', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: 'rgba(35,6,3,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon icon="ri:notion-fill" width="24" height="24" color="#230603" />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'rgb(26,25,25)' }}>Notion Base</h3>
+                    <p style={{ margin: 0, fontSize: 13, color: 'rgb(114,106,90)' }}>Documents & Workflows</p>
+                  </div>
+                </div>
+              </div>
+              <p style={{ margin: 0, fontSize: 14, color: 'rgb(114,106,90)', lineHeight: 1.5 }}>
+                Export reports, risk profiles, and intervention structures directly to Notion workspace.
+              </p>
+              <div style={{ marginTop: 'auto', paddingTop: 16 }}>
+                <button style={{ width: '100%', padding: '10px', backgroundColor: 'white', border: '1px solid rgb(228,221,205)', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#800532', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <Link2 size={16} /> Connect Account
+                </button>
+              </div>
+            </div>
+
+          </div>
         </div>
       )}
 

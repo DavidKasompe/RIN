@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { C1Component, ThemeProvider } from '@thesysai/genui-sdk';
 import { ArrowUp, AlertTriangle, Brain, FileText, TrendingUp, Loader2, Search, Paperclip, Sliders } from 'lucide-react';
+import { Icon } from '@iconify/react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Message {
@@ -264,20 +265,21 @@ function InputBox({ value, onChange, onSend, isLoading, hasMessages = false }: I
                       animation: 'rin-dropdown-up 0.18s cubic-bezier(0.16,1,0.3,1) both',
                     }}>
                       {[
-                        { icon: AlertTriangle, label: 'Risk Analysis', color: '#dc2626' },
-                        { icon: Brain, label: 'Intervention Planning', color: '#800532' },
-                        { icon: FileText, label: 'Document Generation', color: '#92400e' },
-                        { icon: TrendingUp, label: 'Scenario Modeling', color: '#065f46' },
+                        { icon: () => <img src="https://www.gstatic.com/classroom/logo_square_rounded.svg" width={14} height={14} alt="Classroom" />, label: 'Google Classroom' },
+                        { icon: () => <div style={{ width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><img src="https://www.powerschool.com/wp-content/themes/powerschool/img/logo-cyan-p.svg" width={14} height={14} alt="PowerSchool" /></div>, label: 'PowerSchool SIS' },
+                        { icon: () => <Icon icon="devicon:moodle" width="14" height="14" />, label: 'Moodle LMS' },
+                        { icon: () => <Icon icon="logos:google-calendar" width="14" height="14" />, label: 'Google Calendar' },
+                        { icon: () => <Icon icon="ri:notion-fill" width="14" height="14" color="#230603" />, label: 'Notion Base' },
                       ].map(t => (
                         <button key={t.label} className="rin-tool-item" onClick={() => setToolsOpen(false)} style={{
-                          display: 'flex', alignItems: 'center', gap: '10px', width: '100%',
+                          display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
                           padding: '9px 12px', background: 'transparent', border: 'none',
                           borderRadius: '8px', cursor: 'pointer', textAlign: 'left',
                           fontSize: '14px', fontWeight: 500, color: 'rgb(26,25,25)',
                           fontFamily: "'DM Sans', system-ui, sans-serif",
                           transition: 'background 0.1s',
                         }}>
-                          <t.icon size={14} color={t.color} />
+                          <t.icon />
                           <span>{t.label}</span>
                         </button>
                       ))}
