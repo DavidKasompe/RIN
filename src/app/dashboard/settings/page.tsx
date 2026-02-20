@@ -1,7 +1,6 @@
-'use client';
-
 import { useState, useEffect } from 'react';
-import { Setting2, User, Export, Trash, InfoCircle, Link2, Copy, EmptyWallet, Crown } from 'iconsax-reactjs';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { Setting2, User, Export, Trash, InfoCircle, Link2, Copy, EmptyWallet, Crown, TickCircle } from 'iconsax-reactjs';
 import { useCustomer, CheckoutDialog } from 'autumn-js/react';
 import { getTeamDetailsAction } from '../../api/school/team';
 import { Loader2 } from 'lucide-react';
@@ -145,7 +144,7 @@ function BillingContent({ schoolData }: { schoolData: SchoolData | null }) {
                 await checkout({
                   productId: 'pro',
                   dialog: CheckoutDialog,
-                  successUrl: typeof window !== 'undefined' ? window.location.href : undefined
+                  successUrl: typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}?success=true` : undefined
                 });
               }
             } finally {
@@ -164,7 +163,21 @@ function BillingContent({ schoolData }: { schoolData: SchoolData | null }) {
 }
 
 export default function SettingsPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
   const [activeTab, setActiveTab] = useState<'profile' | 'team' | 'billing'>('profile');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('success') === 'true') {
+      setActiveTab('billing');
+      setShowSuccessModal(true);
+      // Clean up the URL
+      router.replace(pathname);
+    }
+  }, [searchParams, pathname, router]);
 
   const { data: session } = useSession();
 
@@ -255,6 +268,30 @@ export default function SettingsPage() {
           Billing
         </button>
       </div>
+
+      {/* SUCCESS MODAL */}
+      {showSuccessModal && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 998, backdropFilter: 'blur(4px)' }} onClick={() => setShowSuccessModal(false)} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', backgroundColor: 'white', borderRadius: 24, padding: 32, width: '90%', maxWidth: 440, zIndex: 999, boxShadow: '0 24px 48px -12px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', fontFamily: "'Inter', system-ui, sans-serif" }}>
+            <div style={{ width: 64, height: 64, borderRadius: '50%', backgroundColor: 'rgba(46,125,50,0.1)', color: '#2E7D32', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+              <TickCircle size={32} variant="Bulk" />
+            </div>
+            <h2 style={{ fontSize: 24, fontWeight: 700, color: 'rgb(26,25,25)', margin: '0 0 12px', letterSpacing: '-0.5px' }}>Subscription Upgraded!</h2>
+            <p style={{ fontSize: 15, color: 'rgb(114,106,90)', margin: '0 0 24px', lineHeight: 1.5 }}>
+              Thank you for upgrading to the School Team plan. Your account has been successfully updated with full access to all premium features.
+            </p>
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              style={{ width: '100%', padding: '14px', backgroundColor: '#800532', color: 'white', border: 'none', borderRadius: 12, fontSize: 16, fontWeight: 600, cursor: 'pointer', transition: 'opacity 0.2s' }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+            >
+              Continue to Dashboard
+            </button>
+          </div>
+        </>
+      )}
 
       {activeTab === 'profile' && (
         <div className="animate-in fade-in duration-300">
