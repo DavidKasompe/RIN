@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { authClient } from '@/lib/auth-client';
 
 const ROLES = [
   { value: 'educator', label: 'Educator / Teacher' },
@@ -41,9 +42,23 @@ export default function SignUpPage() {
     e.preventDefault();
     if (!validate()) return;
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 900));
+
+    const { data, error } = await authClient.signUp.email({
+      email: formData.email,
+      password: formData.password,
+      name: formData.name,
+      role: formData.role,
+    } as any);
+
     setIsLoading(false);
-    router.push('/dashboard');
+
+    if (error) {
+      setErrors({ email: error.message || 'Signup failed' });
+      return;
+    }
+
+    // Success -> Redirect directly to onboarding since new users don't have a school yet
+    router.push('/onboarding');
   };
 
   const inputStyle = (name: string) => ({

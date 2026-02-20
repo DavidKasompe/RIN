@@ -1,5 +1,14 @@
 import { pgTable, text, integer, real, timestamp, jsonb, boolean } from 'drizzle-orm/pg-core';
 
+// ─── Schools ─────────────────────────────────────────────────────────────────
+export const schools = pgTable('schools', {
+    id: text('id').primaryKey(), // We'll generate a unique ID like "sch_123"
+    name: text('name').notNull(),
+    inviteCode: text('invite_code').notNull().unique(), // e.g., "RIN-A1B2C3"
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // ─── Users (better-auth compatible) ─────────────────────────────────────────
 export const users = pgTable('users', {
     id: text('id').primaryKey(),
@@ -7,8 +16,8 @@ export const users = pgTable('users', {
     email: text('email').notNull().unique(),
     emailVerified: boolean('email_verified').notNull().default(false),
     image: text('image'),
-    role: text('role').notNull().default('educator'), // educator | administrator | advisor
-    school: text('school'),
+    role: text('role').notNull().default('educator'), // educator | administrator | counselor
+    schoolId: text('school_id').references(() => schools.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

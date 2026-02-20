@@ -230,10 +230,10 @@ Scopes needed:
 - Assignment submissions → calculate completion rate (missing assignments = risk factor)
 - Grade data → sync to `academic_records` table in Neon
 
-**Canvas LMS API:**
-- REST API at `{school}.instructure.com/api/v1/`
-- Auth via Canvas API token (school admin issues it)
-- Pull: enrollments, grades, assignment submissions, attendance (if using Canvas attendance tracking)
+**Moodle LMS API:**
+- REST API via `core_webservice_*` and `tool_mobile_*` functions
+- Auth via Moodle Web Services Token (generated per user/admin)
+- Pull: course enrollments, gradebook grades, assignment completions, and user activity logs
 
 **Sync frequency:**
 - **Nightly cron** at 2am for grade pulls (low urgency, high data volume)

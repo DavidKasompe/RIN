@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { authClient } from '@/lib/auth-client';
 
 export default function SignInPage() {
   const router = useRouter();
@@ -31,8 +32,19 @@ export default function SignInPage() {
     e.preventDefault();
     if (!validate()) return;
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 900));
+
+    const { data, error } = await authClient.signIn.email({
+      email: formData.email,
+      password: formData.password,
+    });
+
     setIsLoading(false);
+
+    if (error) {
+      setErrors({ email: error.message || 'Invalid email or password' });
+      return;
+    }
+
     router.push('/dashboard');
   };
 

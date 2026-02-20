@@ -1,7 +1,10 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { getTeamDetailsAction } from '../../app/api/school/team';
+import { useSession } from '@/lib/auth-client';
 import {
     Message2,
     People,
@@ -11,6 +14,7 @@ import {
     Setting2,
     Add,
     LogoutCurve,
+    Check,
 } from 'iconsax-reactjs';
 
 const NAV_ITEMS = [
@@ -26,6 +30,25 @@ const SIDEBAR_W = 220;
 export default function Sidebar() {
     const pathname = usePathname();
     const router = useRouter();
+    const { data: session } = useSession();
+    const [schoolName, setSchoolName] = useState('Loading...');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+    useEffect(() => {
+        async function fetchSchool() {
+            try {
+                const res = await getTeamDetailsAction();
+                if (res.success && res.school) {
+                    setSchoolName(res.school.name);
+                } else {
+                    setSchoolName('My Workspace');
+                }
+            } catch (error) {
+                setSchoolName('My Workspace');
+            }
+        }
+        fetchSchool();
+    }, []);
 
     const isActive = (href: string) =>
         href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href);
@@ -50,18 +73,108 @@ export default function Sidebar() {
             fontFamily: "'DM Sans', 'DM Sans Fallback', system-ui, -apple-system, sans-serif",
             zIndex: 50,
         }}>
-            {/* Top — logo */}
-            <div style={{ padding: '16px 12px', paddingBottom: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                    {/* Logo wordmark */}
-                    <Link href="/dashboard" style={{ textDecoration: 'none', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{
-                            fontFamily: 'Inter, "Helvetica Neue", Arial, sans-serif',
-                            fontSize: 19, fontWeight: 800, color: '#800532',
-                            letterSpacing: '-1.4px', lineHeight: 1,
-                        }}>RIN</span>
-                    </Link>
-                </div>
+            {/* Top — Workspace Switcher */}
+            <div style={{ padding: '16px 12px', paddingBottom: 12, position: 'relative' }}>
+                <button
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px',
+                        backgroundColor: isDropdownOpen ? 'rgba(35,6,3,0.05)' : 'transparent',
+                        border: '1px solid transparent',
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(35,6,3,0.05)'}
+                    onMouseLeave={e => { if (!isDropdownOpen) e.currentTarget.style.backgroundColor = 'transparent' }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
+                        <div style={{
+                            width: 28, height: 28, borderRadius: 6,
+                            backgroundColor: '#800532', color: 'white',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 14, fontWeight: 700, flexShrink: 0
+                        }}>
+                            {schoolName === 'Loading...' ? '...' : schoolName.charAt(0).toUpperCase()}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', overflow: 'hidden', textAlign: 'left' }}>
+                            <span style={{ fontSize: 14, fontWeight: 600, color: 'rgb(26,25,25)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>
+                                {schoolName}
+                            </span>
+                            <span style={{ fontSize: 11, color: 'rgb(114,106,90)', fontWeight: 500 }}>
+                                Pro Plan
+                            </span>
+                        </div>
+                    </div>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'rgb(114,106,90)', flexShrink: 0, transform: isDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+                        <path d="m6 9 6 6 6-6" />
+                    </svg>
+                </button>
+
+                {isDropdownOpen && (
+                    <>
+                        {/* Overlay to catch clicks outside */}
+                        <div
+                            style={{ position: 'fixed', inset: 0, zIndex: 100 }}
+                            onClick={() => setIsDropdownOpen(false)}
+                        />
+                        {/* Dropdown Menu */}
+                        <div style={{
+                            position: 'absolute',
+                            top: 'calc(100% - 8px)',
+                            left: 12,
+                            width: 260,
+                            backgroundColor: 'white',
+                            borderRadius: 12,
+                            boxShadow: '0 12px 24px -8px rgba(35,6,3,0.15)',
+                            border: '1px solid rgba(35,6,3,0.08)',
+                            padding: 8,
+                            zIndex: 101,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 4
+                        }}>
+                            <div style={{ padding: '8px 12px', fontSize: 11, fontWeight: 700, color: 'rgba(35,6,3,0.4)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                Workspaces
+                            </div>
+                            <button style={{
+                                width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                                borderRadius: 8, border: 'none', backgroundColor: 'rgba(128,5,50,0.06)', cursor: 'default'
+                            }}>
+                                <div style={{
+                                    width: 24, height: 24, borderRadius: 6, backgroundColor: '#800532', color: 'white',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700
+                                }}>
+                                    {schoolName === 'Loading...' ? '...' : schoolName.charAt(0).toUpperCase()}
+                                </div>
+                                <span style={{ fontSize: 14, fontWeight: 600, color: '#230603' }}>{schoolName}</span>
+                                <Check size={16} color="#800532" style={{ marginLeft: 'auto' }} />
+                            </button>
+                            <div style={{ height: 1, backgroundColor: 'rgba(35,6,3,0.06)', margin: '4px 0' }} />
+                            <button
+                                onClick={() => {
+                                    setIsDropdownOpen(false);
+                                    router.push('/onboarding');
+                                }}
+                                style={{
+                                    width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                                    borderRadius: 8, border: 'none', backgroundColor: 'transparent', cursor: 'pointer',
+                                    color: 'rgba(35,6,3,0.6)', fontSize: 14, fontWeight: 500,
+                                    transition: 'background-color 0.2s'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(35,6,3,0.04)'}
+                                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                                <Add size={18} color="rgba(35,6,3,0.6)" variant="Linear" />
+                                Create new workspace
+                            </button>
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Primary actions */}
@@ -149,11 +262,14 @@ export default function Sidebar() {
                         onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
                         {/* Avatar */}
                         <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: 'rgb(243,240,236)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <span style={{ fontSize: 14, fontWeight: 500, color: 'rgb(41,37,36)' }}>E</span>
+                            <span style={{ fontSize: 14, fontWeight: 500, color: 'rgb(41,37,36)' }}>{session?.user ? session.user.name.charAt(0).toUpperCase() : 'E'}</span>
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 14, fontWeight: 500, color: 'rgb(41,37,36)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Educator</div>
-                            <div style={{ fontSize: 12, color: 'rgb(114,106,90)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Personal Account</div>
+                            <div style={{ fontSize: 14, fontWeight: 500, color: 'rgb(41,37,36)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session?.user ? session.user.name : 'Educator'}</div>
+                            <div style={{ fontSize: 12, color: 'rgb(114,106,90)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'capitalize' }}>
+                                {/* @ts-ignore custom role field */}
+                                {session?.user?.role || 'Member'}
+                            </div>
                         </div>
                         <button onClick={() => router.push('/signin')} title="Sign out" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'rgba(35,6,3,0.4)', display: 'flex', alignItems: 'center' }}>
                             <LogoutCurve size={16} color="rgb(114,106,90)" />
