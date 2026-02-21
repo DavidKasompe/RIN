@@ -1,4 +1,4 @@
-import { pgTable, text, integer, real, timestamp, jsonb, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, real, timestamp, jsonb, boolean, vector } from 'drizzle-orm/pg-core';
 
 // ─── Schools ─────────────────────────────────────────────────────────────────
 export const schools = pgTable('schools', {
@@ -153,4 +153,21 @@ export const workflowRuns = pgTable('workflow_runs', {
     error: text('error'),
     triggeredAt: timestamp('triggered_at').notNull().defaultNow(),
     completedAt: timestamp('completed_at'),
+});
+
+// ─── Student Notes (For RAG) ──────────────────────────────────────────────────
+export const studentNotes = pgTable('student_notes', {
+    id: text('id').primaryKey(),
+    studentId: text('student_id').notNull().references(() => students.id, { onDelete: 'cascade' }),
+    authorId: text('author_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    
+    // The qualitative content (e.g. counselor notes, IEP summary)
+    content: text('content').notNull(),
+    type: text('type').notNull().default('general'), // general | meeting | iep | disciplinary
+    
+    // Vector embedding for semantic search
+    embedding: vector('embedding', { dimensions: 1536 }), // OpenAI text-embedding-3-small
+    
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

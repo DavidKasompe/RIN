@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { C1Component, ThemeProvider } from '@thesysai/genui-sdk';
+
+import { ThemeProvider, C1Component } from '@thesysai/genui-sdk';
 import { ArrowUp, AlertTriangle, Brain, FileText, TrendingUp, Loader2, Search, Paperclip, Sliders } from 'lucide-react';
 import { Icon } from '@iconify/react';
+import { useGlobalContextStore } from '@/lib/contextStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Message {
@@ -35,6 +37,7 @@ const RIN_THEME = {
   },
 };
 
+
 // ─── Starter chips ────────────────────────────────────────────────────────────
 const STARTERS = [
   { icon: AlertTriangle, label: 'Analyze student risk', color: '#dc2626', prompt: 'Analyze dropout risk for a student with 68% attendance, GPA 1.8, and 4 behavior referrals this semester.' },
@@ -57,13 +60,14 @@ const SUGGESTIONS = [
 // ─── Stream helper ────────────────────────────────────────────────────────────
 async function streamC1(
   messages: { role: string; content: string }[],
+  currentViewContext: any,
   onChunk: (acc: string) => void,
   signal: AbortSignal,
 ) {
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ messages, currentViewContext }),
     signal,
   });
   if (!res.ok || !res.body) throw new Error(`Stream failed: ${res.status}`);
@@ -100,13 +104,59 @@ function UserBubble({ content }: { content: string }) {
 }
 
 // ─── Assistant bubble ─────────────────────────────────────────────────────────
-function AssistantBubble({ content, isStreaming }: { content: string; isStreaming: boolean }) {
+// onAction: routes C1 button/form clicks into the next chat turn
+// exportAsPdf / exportAsPPTX: triggered by C1 artifact download buttons
+async function handleExportPdf({ exportParams, title }: { exportParams: string; title: string }) {
+  const res = await fetch('/api/export-pdf', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ exportParams }),
+  });
+  if (!res.ok) { console.error('PDF export failed'); return; }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${(title || 'rin-report').replace(/\.pdf$/i, '')}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  URL.revokeObjectURL(url);
+  a.remove();
+}
+
+async function handleExportPptx({ exportParams, title }: { exportParams: string; title: string }) {
+  const res = await fetch('/api/export-pptx', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ exportParams }),
+  });
+  if (!res.ok) { console.error('PPTX export failed'); return; }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${(title || 'rin-slides').replace(/\.pptx$/i, '')}.pptx`;
+  document.body.appendChild(a);
+  a.click();
+  URL.revokeObjectURL(url);
+  a.remove();
+}
+
+function AssistantBubble({ content, isStreaming, onAction }: {
+  content: string;
+  isStreaming: boolean;
+  onAction: (event: any) => void;
+}) {
   return (
     <div style={{ display: 'flex', marginBottom: '20px' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <C1Component
           c1Response={content}
           isStreaming={isStreaming}
+          onAction={onAction}
+          enableArtifactEdit={true}
+          exportAsPdf={handleExportPdf}
+          exportAsPPTX={handleExportPptx}
           onError={({ code }) => console.error('C1 error', code)}
         />
       </div>
@@ -357,19 +407,26 @@ function InputBox({ value, onChange, onSend, isLoading, hasMessages = false }: I
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
+  const currentViewContext = useGlobalContextStore((state) => state.currentViewContext);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Mount guard — ThemeProvider generates a random UID per render causing SSR/client mismatch.
+  // Rendering it only after mount eliminates the hydration error.
+  useEffect(() => { setIsMounted(true); }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const sendMessage = useCallback(async (userText: string) => {
-    const text = userText.trim();
-    if (!text || isLoading) return;
+  const sendMessage = useCallback(async (displayText: string, apiText?: string) => {
+    const text = displayText.trim();
+    const prompt = (apiText ?? displayText).trim();
+    if (!prompt || isLoading) return;
 
     const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: text };
     const asstId = crypto.randomUUID();
@@ -381,10 +438,12 @@ export default function DashboardPage() {
 
     const controller = new AbortController();
     abortRef.current = controller;
-    const history = [...messages, userMsg].map(m => ({ role: m.role, content: m.content }));
+    // Use prompt (llmFriendlyMessage on action clicks, or same as displayText for manual input)
+    // to build the history so the LLM gets full context, while the chat shows displayText.
+    const history = [...messages, { role: 'user' as const, content: prompt }];
 
     try {
-      await streamC1(history, (acc) => {
+      await streamC1(history, currentViewContext, (acc) => {
         setMessages(prev => prev.map(m => m.id === asstId ? { ...m, content: acc } : m));
       }, controller.signal);
     } catch (err: unknown) {
@@ -397,11 +456,28 @@ export default function DashboardPage() {
     }
   }, [messages, isLoading]);
 
+  // Handle interactive C1 UI actions (button clicks, form submits inside C1 components).
+  // humanFriendlyMessage is shown in the chat bubble; llmFriendlyMessage is sent to the LLM.
+  const handleC1Action = useCallback((event: any) => {
+    if (event.type === 'open_url' && event.params?.url) {
+      window.open(event.params.url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    const { llmFriendlyMessage, humanFriendlyMessage } = event.params ?? {};
+    if (llmFriendlyMessage) {
+      // Display the short human label in chat; send the full context payload to the API
+      sendMessage(humanFriendlyMessage || llmFriendlyMessage, llmFriendlyMessage);
+    }
+  }, [sendMessage]);
+
   const isEmpty = messages.length === 0;
 
   return (
-    <ThemeProvider {...RIN_THEME}>
-      <style>{`
+    <>
+      {/* Render ThemeProvider only on client to avoid SSR/client hydration UID mismatch */}
+      {isMounted && (
+        <ThemeProvider {...RIN_THEME}>
+          <style>{`
         @keyframes rin-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
         @keyframes rin-dropdown-down {
@@ -498,7 +574,7 @@ export default function DashboardPage() {
               {messages.map(m =>
                 m.role === 'user'
                   ? <UserBubble key={m.id} content={m.content} />
-                  : <AssistantBubble key={m.id} content={m.content} isStreaming={m.isStreaming ?? false} />
+                  : <AssistantBubble key={m.id} content={m.content} isStreaming={m.isStreaming ?? false} onAction={handleC1Action} />
               )}
               <div ref={bottomRef} />
             </div>
@@ -519,5 +595,7 @@ export default function DashboardPage() {
 
       </div>
     </ThemeProvider>
+      )}
+    </>
   );
 }

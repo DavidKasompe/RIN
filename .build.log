@@ -1,0 +1,24 @@
+
+> rin-dashboard-nextjs@0.1.0 build
+> next build
+
+⚠ turbopack.root should be absolute, using: C:\Users\user\Desktop\dev_post\rin
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 78s
+  Running TypeScript ...
+Failed to compile.
+
+./autumn.config.ts:41:5
+Type error: Object literal may only specify known properties, and 'features' does not exist in type 'PlanInput'.
+
+[0m [90m 39 |[39m         interval[33m:[39m [32m'month'[39m[33m,[39m
+ [90m 40 |[39m     }[33m,[39m
+[31m[1m>[22m[39m[90m 41 |[39m     features[33m:[39m [
+ [90m    |[39m     [31m[1m^[22m[39m
+ [90m 42 |[39m         planFeature({ feature_id[33m:[39m aiRiskAnalysis[33m.[39mid })[33m,[39m
+ [90m 43 |[39m         planFeature({ feature_id[33m:[39m interventionLogging[33m.[39mid })[33m,[39m
+ [90m 44 |[39m         planFeature({ feature_id[33m:[39m calendarSync[33m.[39mid })[33m,[39m[0m
+Next.js build worker exited with code: 1 and signal: null

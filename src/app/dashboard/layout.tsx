@@ -1,3 +1,4 @@
+import '@crayonai/react-ui/styles/index.css';
 import Sidebar from '@/components/dashboard/Sidebar';
 import DashboardShell from '@/components/dashboard/DashboardShell';
 import { auth } from '@/lib/auth';
