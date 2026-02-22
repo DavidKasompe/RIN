@@ -107,39 +107,63 @@ function UserBubble({ content }: { content: string }) {
 // onAction: routes C1 button/form clicks into the next chat turn
 // exportAsPdf / exportAsPPTX: triggered by C1 artifact download buttons
 async function handleExportPdf({ exportParams, title }: { exportParams: string; title: string }) {
-  const res = await fetch('/api/export-pdf', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ exportParams }),
-  });
-  if (!res.ok) { console.error('PDF export failed'); return; }
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${(title || 'rin-report').replace(/\.pdf$/i, '')}.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  URL.revokeObjectURL(url);
-  a.remove();
+  try {
+    const res = await fetch('/api/export-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exportParams, title }),
+    });
+    if (!res.ok) { console.error('PDF export failed'); return; }
+    const contentType = res.headers.get('content-type') ?? '';
+    if (contentType.includes('application/json')) {
+      // Persisted to Supabase — open the public URL
+      const { publicUrl } = await res.json() as { publicUrl: string };
+      if (publicUrl) window.open(publicUrl, '_blank');
+    } else {
+      // Fallback: direct buffer download
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(title || 'rin-report').replace(/\.pdf$/i, '')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(url);
+      a.remove();
+    }
+  } catch (err) {
+    console.error('PDF export error:', err);
+  }
 }
 
 async function handleExportPptx({ exportParams, title }: { exportParams: string; title: string }) {
-  const res = await fetch('/api/export-pptx', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ exportParams }),
-  });
-  if (!res.ok) { console.error('PPTX export failed'); return; }
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${(title || 'rin-slides').replace(/\.pptx$/i, '')}.pptx`;
-  document.body.appendChild(a);
-  a.click();
-  URL.revokeObjectURL(url);
-  a.remove();
+  try {
+    const res = await fetch('/api/export-pptx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exportParams, title }),
+    });
+    if (!res.ok) { console.error('PPTX export failed'); return; }
+    const contentType = res.headers.get('content-type') ?? '';
+    if (contentType.includes('application/json')) {
+      // Persisted to Supabase — open the public URL
+      const { publicUrl } = await res.json() as { publicUrl: string };
+      if (publicUrl) window.open(publicUrl, '_blank');
+    } else {
+      // Fallback: direct buffer download
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(title || 'rin-slides').replace(/\.pptx$/i, '')}.pptx`;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(url);
+      a.remove();
+    }
+  } catch (err) {
+    console.error('PPTX export error:', err);
+  }
 }
 
 function AssistantBubble({ content, isStreaming, onAction }: {
