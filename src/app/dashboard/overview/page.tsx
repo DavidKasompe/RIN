@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { People, Chart2, Warning2, DocumentText } from 'iconsax-reactjs';
 import StatCard from '@/components/dashboard/StatCard';
 import RiskBadge from '@/components/dashboard/RiskBadge';
+import ArtifactsDrawer from '@/components/dashboard/ArtifactsDrawer';
 import Link from 'next/link';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -69,9 +70,13 @@ export default function OverviewPage() {
 
   return (
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#230603', margin: 0, letterSpacing: '-0.8px' }}>Overview</h1>
-        <p style={{ fontSize: 14, color: 'rgba(35,6,3,0.45)', margin: '4px 0 0' }}>Analytics across {total} students</p>
+      {/* Page header */}
+      <div style={{ marginBottom: 28, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#230603', margin: 0, letterSpacing: '-0.8px' }}>Overview</h1>
+          <p style={{ fontSize: 14, color: 'rgba(35,6,3,0.45)', margin: '4px 0 0' }}>Analytics across {total} students</p>
+        </div>
+        <ArtifactsDrawer />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>

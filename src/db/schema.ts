@@ -171,3 +171,15 @@ export const studentNotes = pgTable('student_notes', {
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
+
+// ─── Artifacts (AI-generated reports & slides) ───────────────────────────────
+export const artifacts = pgTable('artifacts', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+
+    title: text('title').notNull(),
+    type: text('type').notNull().$type<'pdf' | 'pptx'>(), // 'pdf' | 'pptx'
+    publicUrl: text('public_url').notNull(),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+});
