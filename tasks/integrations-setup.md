@@ -1,71 +1,63 @@
-# Integrations Setup & Implementation Plan
+# Integrations Setup & Implementation Plan (Composio Era)
+
 **Assignee:** User / Emmanuel
 
-## Architecture Overview
-Mastra AI supports integrations primarily through **Custom Tools**. A Mastra Tool is a TypeScript function that describes its inputs (using Zod) and its behavior. The agent can seamlessly decide when to call these tools based on user prompts.
+## The Grand Cohesive Goal
+*To transform RIN from a siloed dashboard into a fully autonomous, cross-platform early-warning and intervention engine.*
 
-Rather than looking for "plug-and-play" widgets, the most robust and secure approach for RIN is to build **5 distinct Mastra Tools** using the native Node.js SDKs or REST APIs for each platform.
+Using Composio + Mastra AI, the RIN Agent will not just *analyze* data, but *take action* directly in the tools educators already use every day. It will instantly read grades from any LMS, schedule interventions in calendars, log case notes in Notion, and notify parents via their preferred channel (Email, SMS, or WhatsApp)—all autonomously and natively.
 
----
-
-## 1. Google Workspace (Classroom & Calendar)
-Google provides a unified Node.js SDK (`googleapis`) to interact with both Classroom and Calendar.
-
-- [ ] **Setup GCP Project**:
-  - Go to Google Cloud Console, create a project, and enable the **Google Classroom API** and **Google Calendar API**.
-  - Create OAuth 2.0 credentials or a Service Account depending on your auth strategy.
-- [ ] **Install SDK**: `npm install googleapis`
-- [ ] **Create `googleClassroomTool`**:
-  - Build a Mastra tool that fetches a student's enrolled courses and pending assignments.
-- [ ] **Create `googleCalendarTool`**:
-  - Build a Mastra tool that queries a teacher's calendar for upcoming parent-teacher conferences or IEP meetings.
-
-## 2. PowerSchool SIS
-PowerSchool uses a standard REST API secured by OAuth 2.0 Client Credentials.
-
-- [ ] **Acquire PowerSchool Credentials**:
-  - Request API access (Client ID and Client Secret) from your test PowerSchool server/district.
-- [ ] **Create `powerSchoolTool`**:
-  - Build a Mastra tool using native `fetch` or `axios`.
-  - Endpoint targets: `/ws/v1/student` for demographics and `/ws/v1/attendance` for attendance records.
-  - Make sure to document the exact JSON schema in the tool's description so the agent knows what data it's extracting.
-
-## 3. Moodle LMS
-Moodle provides an extensive REST API that uses a simple token-based authentication mechanism.
-
-- [ ] **Enable Moodle Web Services**:
-  - In Moodle Admin, enable Web Services and generate an Access Token for your integration user.
-- [ ] **Create `moodleTool`**:
-  - Build a Mastra tool utilizing standard HTTP requests.
-  - Endpoint targets: `core_enrol_get_users_courses` (to get courses) and `gradereport_user_get_grades_table` (to get grades).
-
-## 4. Notion Base
-Notion has an excellent official Node.js SDK for reading from and writing to Notion databases.
-
-- [ ] **Create Notion Integration**:
-  - Go to `www.notion.so/my-integrations`, create a new internal integration, and get the `NOTION_API_KEY`.
-  - Share the target Notion database with the integration.
-- [ ] **Install SDK**: `npm install @notionhq/client`
-- [ ] **Create `notionExportTool`**:
-  - Build a Mastra tool that takes a generated "Risk Assessment Report" or "Intervention Plan" from the agent and uses `notion.pages.create()` to append it perfectly formatted into the school's shared Notion workspace.
+We are dropping the custom OAuth token management and hardcoded REST API calls. We will utilize **Composio MCP + Tool Router**.
 
 ---
 
-## Next Steps for Integration
-Once these individual TS files are written (e.g., `src/mastra/tools/google-calendar.ts`), simply import them into `src/mastra/agents/rin-agent.ts` and add them to the agent's `tools` array:
+## Architecture Transformation (Custom Tools → Composio MCP)
 
-```typescript
-export const rinAgent = new Agent({
-    id: 'rinAgent',
-    name: 'RIN Agent',
-    instructions: `...`,
-    tools: { 
-        googleClassroomTool, 
-        powerSchoolTool, 
-        moodleTool, 
-        googleCalendarTool, 
-        notionExportTool 
-    },
-    // ...
-});
-```
+Instead of building individual integrations and managing standard OAuth flows on our database, we are migrating to **Composio MCP**:
+- **Managed Auth**: Composio handles token refresh, credential storage, and session management per user via `COMPOSIO_USER_ID`.
+- **White-Labeling**: We will use Custom Auth Configs (plugging in our own OAuth Client IDs) so the consent screens say "RIN" instead of "Composio".
+- **Dynamic Agent Plugins**: Mastra AI connects to a Composio MCP server URL. Composio's 1000+ tools are injected dynamically into the LLM context.
+
+---
+
+## The New Integration Suite (Composio Toolkits)
+
+We are replacing our old manual plan with the following Supported Composio Toolkits:
+
+### 1. Education & LMS (The Core Data Source)
+- **Google Classroom**, **Canvas**, **Blackboard**, **D2L Brightspace**
+- *Agent Use Case: Autonomously fetch student rosters, track missing assignments, and monitor real-time grades without us building custom scrapers.*
+
+### 2. Parent & Teacher Notifications (Multichannel)
+- **Email**: **Gmail**, **Outlook**
+- **SMS & WhatsApp/RCS**: **2chat** (WhatsApp), **MSG91** (Global SMS/Voice/WhatsApp), **Telnyx** (SMS), **SMS Alert** (SMS/RCS)
+- **Internal Team**: **Slack**, **Microsoft Teams**, **Discord**
+- *Agent Use Case: When a student hits Critical Risk, the agent drafts and sends a localized WhatsApp message or an official Email originating directly from the Teacher's own account (highly personal/trustworthy).*
+
+### 3. Productivity & Case Management (The Organizers)
+- **Calendars**: **Google Calendar**, **Outlook Calendar**
+- **Documents & Knowledge**: **Notion**, **Google Docs**, **Google Drive**
+- *Agent Use Case: Agent checks teacher availability, schedules a Parent-Teacher conference, and seamlessly exports the Risk Report to the school's Notion workspace.*
+
+---
+
+## Step-by-Step Implementation Roadmap
+
+### Phase 1: Core Setup & Agent Wiring
+1. **Dependencies**: `npm install @composio/core @mastra/mcp`
+2. **Setup Env**: Add `COMPOSIO_API_KEY` to our environment.
+3. **Mastra Engine Update**: Refactor `rin-agent.ts` to connect to `session.mcp.url` using the `@mastra/mcp` client, injecting tools using `mcpClient.getTools()`.
+
+### Phase 2: White-Label Authentication & Settings UI
+1. **Custom Auth Configs**: In the Composio Dashboard, configure our own Developer API keys/OAuth apps for Google, Notion, etc., so the auth is fully white-labeled to "RIN".
+2. **Dashboard Connections Page**: Build out `/dashboard/workspace/settings` to list toolkits.
+3. **Manual Auth Flow**: Implement `session.authorize('googleclassroom', { callbackUrl: '...' })`. When an educator clicks "Connect", they are routed to the secure OAuth flow and returned to the dashboard.
+
+### Phase 3: The "Magic" Workflows
+1. **The Intervention Automation**:
+   - Agent dynamically calls `GOOGLECLASSROOM_LIST_COURSE_STUDENTS` to find a struggling student.
+   - Agent calls `MSG91_SEND_WHATSAPP` or `GMAIL_SEND_EMAIL` to contact parents for a meeting.
+   - Agent calls `GOOGLECALENDAR_CREATE_EVENT` to lock in the synced schedule.
+   - Agent calls `NOTION_CREATE_PAGE` to log the intervention note.
+
+Welcome to the future of the RIN platform!
