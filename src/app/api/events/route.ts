@@ -27,7 +27,8 @@ export async function GET(req: NextRequest) {
                     arguments: {
                         timeMin: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString(), // Last 1 month
                         max_results: 50 // Limit to avoid massive payloads
-                    }
+                    },
+                    dangerouslySkipVersionCheck: true,
                 });
 
                 if (result.successful && result.data && Array.isArray(result.data.items)) {
@@ -36,9 +37,12 @@ export async function GET(req: NextRequest) {
                         id: item.id,
                         title: item.summary || 'Busy',
                         type: 'meeting',
-                        // Google Calendar has standard date/dateTime formats
                         date: item.start?.dateTime || item.start?.date || new Date().toISOString(),
-                        notes: item.description || ''
+                        notes: item.description || '',
+                        hangoutLink: item.hangoutLink || null,
+                        htmlLink: item.htmlLink || null,
+                        location: item.location || null,
+                        attendees: item.attendees || [],
                     }));
 
                     // Filter out Google events that might be exactly matching our DB IDs if we synced them
@@ -95,7 +99,8 @@ export async function POST(req: NextRequest) {
                     event_duration_hour: 1, // Default to 1-hour meetings
                     event_duration_minutes: 0,
                     create_meeting_room: true // Automatically create Google Meet link
-                }
+                },
+                dangerouslySkipVersionCheck: true,
             });
         } catch (e: any) {
             console.log("Composio: Failed to push to Google Calendar (maybe not connected).", e.message);

@@ -21,7 +21,32 @@ export const ACTION_REGISTRY: Record<string, StepImporter> = {
     "Add Student Note": {
         importer: () => import('../integrations/student-notes'),
         stepFunction: "addStudentNoteStep"
-    }
+    },
+    // ── Integration Actions (Composio) ──
+    "Slack Message": {
+        importer: () => import('../integrations/composio-steps'),
+        stepFunction: "slackMessageStep"
+    },
+    "Gmail Send": {
+        importer: () => import('../integrations/composio-steps'),
+        stepFunction: "gmailSendStep"
+    },
+    "Calendar Event": {
+        importer: () => import('../integrations/composio-steps'),
+        stepFunction: "calendarEventStep"
+    },
+    "Notion Page": {
+        importer: () => import('../integrations/composio-steps'),
+        stepFunction: "notionPageStep"
+    },
+    "Sheets Row": {
+        importer: () => import('../integrations/composio-steps'),
+        stepFunction: "sheetsRowStep"
+    },
+    "Drive Upload": {
+        importer: () => import('../integrations/composio-steps'),
+        stepFunction: "driveUploadStep"
+    },
 };
 
 export function getStepImporter(actionType: string): StepImporter | undefined {

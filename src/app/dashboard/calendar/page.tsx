@@ -5,10 +5,17 @@ import {
     format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isSameMonth, isToday, addMonths, subMonths,
 } from 'date-fns';
 import { ArrowLeft2, ArrowRight2, Add } from 'iconsax-reactjs';
+import { Icon } from '@iconify/react';
 
 type CalendarEvent = {
     id: string; title: string; type: string; date: string;
     studentId?: string | null; notes?: string | null;
+    // Google Calendar fields
+    description?: string | null;
+    htmlLink?: string | null;
+    hangoutLink?: string | null;
+    location?: string | null;
+    attendees?: any[];
 };
 
 const EVENT_COLORS: Record<string, { bg: string; text: string; border: string; dot: string }> = {
@@ -25,6 +32,8 @@ export default function CalendarPage() {
     const [showModal, setShowModal] = useState(false);
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+    const [viewingEvent, setViewingEvent] = useState<CalendarEvent | null>(null);
+    const [dayEventsPopover, setDayEventsPopover] = useState<{ day: Date; events: CalendarEvent[] } | null>(null);
 
     const fetchEvents = useCallback(async () => {
         const res = await fetch('/api/events');
@@ -49,13 +58,31 @@ export default function CalendarPage() {
     const openCreateModal = (date: Date) => {
         setSelectedDate(date);
         setEditingEvent(null);
+        setDayEventsPopover(null);
         setShowModal(true);
     };
 
     const openEditModal = (ev: CalendarEvent) => {
         setEditingEvent(ev);
         setSelectedDate(new Date(ev.date));
+        setDayEventsPopover(null);
         setShowModal(true);
+    };
+
+    const openEventDetail = (ev: CalendarEvent) => {
+        setViewingEvent(ev);
+        setDayEventsPopover(null);
+    };
+
+    const handleDayClick = (day: Date) => {
+        const dayEvents = getEventsForDay(day);
+        if (dayEvents.length === 0) {
+            openCreateModal(day);
+        } else if (dayEvents.length === 1) {
+            openEventDetail(dayEvents[0]);
+        } else {
+            setDayEventsPopover({ day, events: dayEvents });
+        }
     };
 
     const deleteEvent = async (id: string) => {
@@ -119,21 +146,26 @@ export default function CalendarPage() {
                         const today = isToday(day);
                         const inMonth = isSameMonth(day, currentMonth);
                         return (
-                            <div key={format(day, 'yyyy-MM-dd')} onClick={() => openCreateModal(day)}
-                                style={{ backgroundColor: today ? 'rgba(128,5,50,0.04)' : 'white', border: `1px solid ${today ? 'rgba(128,5,50,0.2)' : 'rgba(35,6,3,0.06)'}`, borderRadius: 10, padding: '8px 10px', cursor: 'pointer', minHeight: 80, display: 'flex', flexDirection: 'column', gap: 4, transition: 'background-color 0.1s' }}
+                            <div key={format(day, 'yyyy-MM-dd')} onClick={() => handleDayClick(day)}
+                                style={{ backgroundColor: today ? 'rgba(128,5,50,0.04)' : 'white', border: `1px solid ${today ? 'rgba(128,5,50,0.2)' : 'rgba(35,6,3,0.06)'}`, borderRadius: 10, padding: '6px 8px', cursor: 'pointer', minHeight: 80, display: 'flex', flexDirection: 'column', gap: 3, transition: 'background-color 0.1s', overflow: 'hidden', position: 'relative' }}
                                 onMouseEnter={e => { if (!today) (e.currentTarget.style.backgroundColor = 'rgba(250,243,236,0.7)'); }}
                                 onMouseLeave={e => { if (!today) (e.currentTarget.style.backgroundColor = 'white'); }}>
-                                <span style={{ fontSize: 13, fontWeight: today ? 800 : 500, color: today ? '#800532' : inMonth ? '#230603' : 'rgba(35,6,3,0.2)', lineHeight: 1 }}>{format(day, 'd')}</span>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontSize: 13, fontWeight: today ? 800 : 500, color: today ? '#800532' : inMonth ? '#230603' : 'rgba(35,6,3,0.2)', lineHeight: 1 }}>{format(day, 'd')}</span>
+                                    {dayEvents.length > 0 && (
+                                        <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: EVENT_COLORS[dayEvents[0].type]?.dot || '#2980B9', flexShrink: 0 }} />
+                                    )}
+                                </div>
                                 {dayEvents.slice(0, 2).map(ev => {
                                     const col = EVENT_COLORS[ev.type] ?? EVENT_COLORS.meeting;
                                     return (
-                                        <div key={ev.id} onClick={e => { e.stopPropagation(); openEditModal(ev); }}
-                                            style={{ fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 5, backgroundColor: col.bg, color: col.text, border: `1px solid ${col.border}`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, lineHeight: 1.4 }}>
-                                            {ev.title}
+                                        <div key={ev.id} onClick={e => { e.stopPropagation(); openEventDetail(ev); }}
+                                            style={{ fontSize: 10, fontWeight: 600, padding: '2px 5px', borderRadius: 4, backgroundColor: col.bg, color: col.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, lineHeight: 1.4, maxWidth: '100%' }}>
+                                            {ev.title.length > 22 ? ev.title.slice(0, 20) + '…' : ev.title}
                                         </div>
                                     );
                                 })}
-                                {dayEvents.length > 2 && <span style={{ fontSize: 10, color: 'rgba(35,6,3,0.35)', fontWeight: 500 }}>+{dayEvents.length - 2} more</span>}
+                                {dayEvents.length > 2 && <span style={{ fontSize: 9, color: 'rgba(35,6,3,0.4)', fontWeight: 600 }}>+{dayEvents.length - 2} more</span>}
                             </div>
                         );
                     })}
@@ -141,22 +173,22 @@ export default function CalendarPage() {
             </div>
 
             {/* Sidebar — upcoming events */}
-            <div style={{ width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
                 <p style={{ margin: 0, fontSize: 11, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', color: 'rgba(35,6,3,0.35)', paddingTop: 52 }}>Upcoming Events</p>
                 {upcoming.length === 0 ? (
                     <p style={{ fontSize: 13, color: 'rgba(35,6,3,0.35)', fontStyle: 'italic' }}>No upcoming events.</p>
                 ) : upcoming.map(ev => {
                     const col = EVENT_COLORS[ev.type] ?? EVENT_COLORS.meeting;
                     return (
-                        <div key={ev.id} onClick={() => openEditModal(ev)} style={{ backgroundColor: 'white', borderRadius: 11, padding: '12px 14px', border: `1px solid ${col.border}`, cursor: 'pointer', transition: 'box-shadow 0.15s' }}
+                        <div key={ev.id} onClick={() => openEventDetail(ev)} style={{ backgroundColor: 'white', borderRadius: 11, padding: '12px 14px', border: `1px solid ${col.border}`, cursor: 'pointer', transition: 'box-shadow 0.15s' }}
                             onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 2px 8px rgba(35,6,3,0.08)')}
                             onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
                                 <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: col.dot, flexShrink: 0 }} />
                                 <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.07em', color: col.text }}>{ev.type}</span>
                             </div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: '#230603', lineHeight: 1.4, marginBottom: 4 }}>{ev.title}</div>
-                            <div style={{ fontSize: 11, color: 'rgba(35,6,3,0.4)' }}>{format(new Date(ev.date), 'EEE, MMM d')}</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: '#230603', lineHeight: 1.4, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{ev.title}</div>
+                            <div style={{ fontSize: 11, color: 'rgba(35,6,3,0.4)' }}>{format(new Date(ev.date), 'EEE, MMM d · h:mm a')}</div>
                         </div>
                     );
                 })}
@@ -175,8 +207,51 @@ export default function CalendarPage() {
                 </div>
             </div>
 
+            {/* Day Events Popover — when clicking a day with multiple events */}
+            {dayEventsPopover && (
+                <>
+                    <div onClick={() => setDayEventsPopover(null)} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
+                    <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 360, backgroundColor: 'white', zIndex: 200, borderRadius: 14, boxShadow: '0 16px 48px rgba(35,6,3,0.18)', fontFamily: 'Inter, system-ui, sans-serif', border: '1px solid rgba(35,6,3,0.08)' }}>
+                        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(35,6,3,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#230603' }}>{format(dayEventsPopover.day, 'EEEE, MMM d')}</h3>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                                <button onClick={() => openCreateModal(dayEventsPopover.day)} style={{ padding: '5px 10px', backgroundColor: '#800532', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, color: 'white', cursor: 'pointer', fontFamily: 'inherit' }}>+ Add</button>
+                                <button onClick={() => setDayEventsPopover(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'rgba(35,6,3,0.4)' }}>×</button>
+                            </div>
+                        </div>
+                        <div style={{ padding: '8px 12px', maxHeight: 320, overflowY: 'auto' }}>
+                            {dayEventsPopover.events.map(ev => {
+                                const col = EVENT_COLORS[ev.type] ?? EVENT_COLORS.meeting;
+                                return (
+                                    <div key={ev.id} onClick={() => openEventDetail(ev)}
+                                        style={{ padding: '10px 12px', borderRadius: 8, cursor: 'pointer', marginBottom: 4, transition: 'background 0.1s', display: 'flex', alignItems: 'center', gap: 10, borderLeft: `3px solid ${col.dot}` }}
+                                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(35,6,3,0.03)')}
+                                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontSize: 13, fontWeight: 600, color: '#230603', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{ev.title}</div>
+                                            <div style={{ fontSize: 11, color: 'rgba(35,6,3,0.4)', marginTop: 2 }}>{format(new Date(ev.date), 'h:mm a')} · {ev.type}</div>
+                                        </div>
+                                        <Icon icon="lucide:chevron-right" width={14} style={{ color: 'rgba(35,6,3,0.25)', flexShrink: 0 }} />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {/* Event Detail Modal — read-only view */}
+            {viewingEvent && (
+                <EventDetailModal
+                    event={viewingEvent}
+                    onClose={() => setViewingEvent(null)}
+                    onEdit={() => { openEditModal(viewingEvent); setViewingEvent(null); }}
+                    onDelete={() => { deleteEvent(viewingEvent.id); setViewingEvent(null); }}
+                />
+            )}
+
             {showModal && (
-                <EventModal
+                <EventFormModal
                     date={selectedDate!}
                     event={editingEvent}
                     onClose={() => { setShowModal(false); setEditingEvent(null); }}
@@ -188,8 +263,104 @@ export default function CalendarPage() {
     );
 }
 
-// ─── Event Modal ──────────────────────────────────────────────────────────────
-function EventModal({ date, event, onClose, onSave, onDelete }: {
+// ─── Event Detail Modal (read-only view with Meet link) ──────────────────────
+function EventDetailModal({ event, onClose, onEdit, onDelete }: {
+    event: CalendarEvent; onClose: () => void; onEdit: () => void; onDelete: () => void;
+}) {
+    const col = EVENT_COLORS[event.type] ?? EVENT_COLORS.meeting;
+    const eventDate = new Date(event.date);
+    const meetLink = event.hangoutLink || null;
+    const calLink = event.htmlLink || null;
+    const description = event.notes || event.description || null;
+
+    return (
+        <>
+            <div onClick={onClose} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(35,6,3,0.2)', zIndex: 200, backdropFilter: 'blur(2px)' }} />
+            <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 440, backgroundColor: 'white', zIndex: 201, borderRadius: 16, boxShadow: '0 20px 60px rgba(35,6,3,0.2)', fontFamily: 'Inter, system-ui, sans-serif', overflow: 'hidden' }}>
+                {/* Color accent bar */}
+                <div style={{ height: 4, backgroundColor: col.dot }} />
+
+                <div style={{ padding: '20px 24px' }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: col.dot }} />
+                                <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.07em', color: col.text }}>{event.type}</span>
+                            </div>
+                            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#230603', lineHeight: 1.3 }}>{event.title}</h2>
+                        </div>
+                        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'rgba(35,6,3,0.35)', flexShrink: 0, marginLeft: 8 }}>×</button>
+                    </div>
+
+                    {/* Date & Time */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <Icon icon="lucide:calendar" width={16} style={{ color: 'rgba(35,6,3,0.4)', flexShrink: 0 }} />
+                            <span style={{ fontSize: 14, color: '#230603', fontWeight: 500 }}>{format(eventDate, 'EEEE, MMMM d, yyyy')}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <Icon icon="lucide:clock" width={16} style={{ color: 'rgba(35,6,3,0.4)', flexShrink: 0 }} />
+                            <span style={{ fontSize: 14, color: '#230603', fontWeight: 500 }}>{format(eventDate, 'h:mm a')}</span>
+                        </div>
+                    </div>
+
+                    {/* Google Meet Link */}
+                    {meetLink && (
+                        <a href={meetLink} target="_blank" rel="noopener noreferrer"
+                            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', backgroundColor: 'rgba(66,133,244,0.06)', border: '1px solid rgba(66,133,244,0.15)', borderRadius: 10, textDecoration: 'none', marginBottom: 14, transition: 'background 0.15s' }}
+                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(66,133,244,0.12)')}
+                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'rgba(66,133,244,0.06)')}>
+                            <Icon icon="logos:google-meet" width={20} />
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: '#1a73e8' }}>Join Google Meet</div>
+                                <div style={{ fontSize: 11, color: 'rgba(26,115,232,0.6)' }}>{meetLink.replace('https://', '')}</div>
+                            </div>
+                            <Icon icon="lucide:external-link" width={14} style={{ color: 'rgba(26,115,232,0.5)' }} />
+                        </a>
+                    )}
+
+                    {/* Description / Notes */}
+                    {description && (
+                        <div style={{ marginBottom: 14 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.07em', color: 'rgba(35,6,3,0.35)', marginBottom: 6 }}>Notes</div>
+                            <div style={{ fontSize: 13, color: 'rgba(35,6,3,0.7)', lineHeight: 1.6, padding: '10px 12px', backgroundColor: 'rgba(35,6,3,0.02)', borderRadius: 8, whiteSpace: 'pre-wrap' as const }}>{description}</div>
+                        </div>
+                    )}
+
+                    {/* Google Calendar link */}
+                    {calLink && (
+                        <a href={calLink} target="_blank" rel="noopener noreferrer"
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(35,6,3,0.4)', textDecoration: 'none', marginBottom: 14 }}
+                            onMouseEnter={e => (e.currentTarget.style.color = '#1a73e8')}
+                            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(35,6,3,0.4)')}>
+                            <Icon icon="lucide:external-link" width={12} />
+                            Open in Google Calendar
+                        </a>
+                    )}
+                </div>
+
+                {/* Actions */}
+                <div style={{ padding: '12px 24px 16px', borderTop: '1px solid rgba(35,6,3,0.06)', display: 'flex', gap: 8 }}>
+                    <button onClick={onDelete} style={{ padding: '8px 14px', backgroundColor: 'rgba(192,57,43,0.06)', border: '1px solid rgba(192,57,43,0.12)', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#C0392B', cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s' }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(192,57,43,0.12)')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'rgba(192,57,43,0.06)')}>
+                        Delete
+                    </button>
+                    <div style={{ flex: 1 }} />
+                    <button onClick={onEdit} style={{ padding: '8px 16px', backgroundColor: '#800532', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: 'white', cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s' }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#6b0428')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#800532')}>
+                        Edit Event
+                    </button>
+                </div>
+            </div>
+        </>
+    );
+}
+
+// ─── Event Form Modal (create/edit) ──────────────────────────────────────────
+function EventFormModal({ date, event, onClose, onSave, onDelete }: {
     date: Date; event: CalendarEvent | null;
     onClose: () => void; onSave: (d: Partial<CalendarEvent>) => Promise<void>;
     onDelete?: () => void;

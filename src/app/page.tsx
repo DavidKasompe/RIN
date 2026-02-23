@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { Icon } from '@iconify/react';
 import { useSession } from '@/lib/auth-client';
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -134,8 +135,9 @@ export default function LandingPage() {
             }}>
               {[
                 { label: 'Features', href: '#features' },
-                { label: 'How it Works', href: '#how-it-works' },
+                { label: 'Integrations', href: '#integrations' },
                 { label: 'Educators', href: '#testimonials' },
+                { label: 'Pricing', href: '#pricing' },
               ].map(item => (
                 <a
                   key={item.label}
@@ -196,7 +198,7 @@ export default function LandingPage() {
         {/* Mobile menu — solid cream drop-down */}
         {mobileOpen && (
           <div style={{ maxWidth: 1120, margin: '8px auto 0', borderRadius: 16, backgroundColor: 'rgba(250,243,236,0.96)', backdropFilter: 'blur(16px)', padding: '12px 24px 18px' }}>
-            {[{ label: 'Features', href: '#features' }, { label: 'How it Works', href: '#how-it-works' }, { label: 'Educators', href: '#testimonials' }].map(item => (
+            {[{ label: 'Features', href: '#features' }, { label: 'Integrations', href: '#integrations' }, { label: 'Educators', href: '#testimonials' }, { label: 'Pricing', href: '#pricing' }].map(item => (
               <a key={item.label} href={item.href} onClick={() => setMobileOpen(false)} style={{ display: 'block', textDecoration: 'none', color: '#230603', fontSize: 14, fontWeight: 500, padding: '10px 0', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>{item.label}</a>
             ))}
             {!isPending && session ? (
@@ -266,22 +268,24 @@ export default function LandingPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════
-          SCHOOL MARQUEE — prominent trust bar
+          PLATFORM PREVIEW
       ════════════════════════════════════════════════════════════════ */}
-      <div style={{ backgroundColor: '#FAF3EC', borderTop: '1px solid rgba(128,5,50,0.08)', borderBottom: '1px solid rgba(128,5,50,0.08)', overflow: 'hidden', paddingTop: 48, paddingBottom: 52 }}>
-        {/* Bold headline */}
-        <p style={{ textAlign: 'center', fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.18em', color: 'rgba(128,5,50,0.55)', margin: '0 0 32px' }}>
-          Trusted by educators at
-        </p>
-        {/* Large school name strip */}
-        <div style={{ display: 'flex', overflow: 'hidden', maskImage: 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)' }}>
-          <div className="animate-marquee" style={{ display: 'flex', gap: 64, whiteSpace: 'nowrap', alignItems: 'center', flexShrink: 0 }}>
-            {[...SCHOOLS, ...SCHOOLS].map((s, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'rgba(35,6,3,0.65)', fontWeight: 600, fontSize: 18, letterSpacing: '-0.3px' }}>
-                <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', backgroundColor: '#800532', opacity: 0.45, flexShrink: 0 }} />
-                {s}
-              </div>
-            ))}
+      <div style={{ backgroundColor: '#FAF3EC', paddingTop: 72, paddingBottom: 80, overflow: 'hidden' }}>
+        <div style={{ maxWidth: 1060, margin: '0 auto', padding: '0 28px' }}>
+          <p style={{ textAlign: 'center', fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(128,5,50,0.5)', margin: '0 0 28px' }}>
+            Meet RIN
+          </p>
+          <div style={{
+            borderRadius: 20,
+            border: '3px solid rgba(128,5,50,0.15)',
+            overflow: 'hidden',
+            boxShadow: '0 8px 24px -8px rgba(35,6,3,0.06)',
+          }}>
+            <img
+              src="/platform-preview.png"
+              alt="RIN platform preview — AI chat interface with integrations"
+              style={{ width: '100%', display: 'block' }}
+            />
           </div>
         </div>
       </div>
@@ -421,6 +425,91 @@ export default function LandingPage() {
 
 
       {/* ════════════════════════════════════════════════════════════════
+          INTEGRATIONS
+      ════════════════════════════════════════════════════════════════ */}
+      <section id="integrations" style={{ backgroundColor: 'white', paddingTop: 120, paddingBottom: 100 }}>
+        <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 28px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 72 }}>
+            <p style={{ color: '#800532', fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Integrations</p>
+            <h2 style={{ color: '#230603', fontSize: 42, fontWeight: 400, letterSpacing: '-2px', margin: '0 0 18px', lineHeight: 1.15 }}>
+              Connects with the tools{' '}
+              <span style={{ color: '#aa6b76' }}>your school already uses.</span>
+            </h2>
+            <p style={{ fontSize: 18, color: 'rgba(35,6,3,0.55)', margin: 0, maxWidth: 640, marginInline: 'auto', lineHeight: 1.55 }}>
+              RIN plugs directly into your school&apos;s existing ecosystem — email, calendars, learning platforms, spreadsheets, and team chat. No migration needed.
+            </p>
+          </div>
+
+          {/* Integration categories — 2×2 grid with larger logos */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 20, marginBottom: 48 }}>
+            {[
+              {
+                cat: 'Communication & Calendar',
+                icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#800532" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>,
+                tools: [
+                  { name: 'Gmail', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/7e/Gmail_icon_%282020%29.svg' },
+                  { name: 'Slack', logo: 'https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg' },
+                  { name: 'Microsoft Teams', logo: 'https://www.google.com/s2/favicons?domain=teams.microsoft.com&sz=128' },
+                  { name: 'Outlook', logo: 'https://www.google.com/s2/favicons?domain=outlook.live.com&sz=128' },
+                  { name: 'Google Calendar', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg' },
+                ],
+              },
+              {
+                cat: 'LMS & Classroom',
+                icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#800532" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>,
+                tools: [
+                  { name: 'Google Classroom', logo: 'https://www.gstatic.com/classroom/logo_square_rounded.svg' },
+                  { name: 'Canvas LMS', logo: 'https://www.google.com/s2/favicons?domain=instructure.com&sz=128' },
+                ],
+              },
+              {
+                cat: 'Data & Reports',
+                icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#800532" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>,
+                tools: [
+                  { name: 'Google Sheets', logo: 'https://upload.wikimedia.org/wikipedia/commons/3/30/Google_Sheets_logo_%282014-2020%29.svg' },
+                  { name: 'Microsoft Excel', iconify: 'vscode-icons:file-type-excel' },
+                ],
+              },
+              {
+                cat: 'Documents & Storage',
+                icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#800532" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>,
+                tools: [
+                  { name: 'Notion', logo: 'https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png' },
+                  { name: 'Google Drive', logo: 'https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg' },
+                ],
+              },
+            ].map(group => (
+              <div key={group.cat} style={{ backgroundColor: '#FAF3EC', borderRadius: 20, padding: '36px 32px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: 'rgba(128,5,50,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {group.icon}
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(35,6,3,0.5)' }}>{group.cat}</span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+                  {group.tools.map(tool => (
+                    <div key={tool.name} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      {(tool as any).iconify
+                        ? <Icon icon={(tool as any).iconify} width={36} height={36} style={{ flexShrink: 0 }} />
+                        : <img src={tool.logo} alt={tool.name} width={36} height={36} style={{ objectFit: 'contain', flexShrink: 0, borderRadius: 6 }} />
+                      }
+                      <span style={{ fontSize: 16, fontWeight: 500, color: '#230603' }}>{tool.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ textAlign: 'center', marginTop: 48 }}>
+            <Link href="/signup" style={{ textDecoration: 'none', fontWeight: 600, borderRadius: 9999, backgroundColor: '#800532', color: 'white', padding: '14px 28px', fontSize: 14, letterSpacing: '-0.5px' }}>
+              Connect Your Tools — Free
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════
           PRICING
       ════════════════════════════════════════════════════════════════ */}
       <section id="pricing" style={{ backgroundColor: 'white', paddingTop: 140, paddingBottom: 140 }}>
@@ -428,10 +517,10 @@ export default function LandingPage() {
           <div style={{ textAlign: 'center', marginBottom: 64 }}>
             <p style={{ color: '#800532', fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Pricing</p>
             <h2 style={{ color: '#230603', fontSize: 48, fontWeight: 700, letterSpacing: '-2px', margin: '0 0 16px', lineHeight: 1.1 }}>
-              Team-focused pricing.<br />Try free for 7 days.
+              Built for schools.<br />Start free, scale when ready.
             </h2>
-            <p style={{ fontSize: 18, color: 'rgba(35,6,3,0.55)', margin: 0, maxWidth: 600, marginInline: 'auto', lineHeight: 1.5 }}>
-              No credit card required. Upgrade when you&apos;re ready to bring your whole school onto the platform.
+            <p style={{ fontSize: 18, color: 'rgba(35,6,3,0.55)', margin: 0, maxWidth: 640, marginInline: 'auto', lineHeight: 1.5 }}>
+              No credit card required. Every plan includes AI risk intelligence, 11 integrations, and unlimited student records.
             </p>
           </div>
 
@@ -446,7 +535,7 @@ export default function LandingPage() {
                 Most Popular
               </div>
               <h3 style={{ fontSize: 24, fontWeight: 700, color: '#230603', margin: '0 0 8px' }}>School Team</h3>
-              <p style={{ fontSize: 15, color: 'rgba(35,6,3,0.55)', margin: '0 0 24px' }}>Perfect for individual schools and intervention teams.</p>
+              <p style={{ fontSize: 15, color: 'rgba(35,6,3,0.55)', margin: '0 0 24px' }}>For individual schools and counselor intervention teams.</p>
               <div style={{ marginBottom: 32 }}>
                 <span style={{ fontSize: 48, fontWeight: 700, color: '#230603', letterSpacing: '-2px' }}>$249</span>
                 <span style={{ fontSize: 15, color: 'rgba(35,6,3,0.5)', fontWeight: 500 }}> /school /mo</span>
@@ -454,10 +543,13 @@ export default function LandingPage() {
               <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 32px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {[
                   'Unlimited educators & administrators',
-                  'Full AI risk analysis & conversational UI',
-                  'Intervention logging & history',
-                  'Google Calendar bi-directional sync',
-                  'Automated parent email alerts',
+                  'AI risk analysis with conversational chat UI',
+                  'Intervention plans, logging & history tracking',
+                  'Gmail, Google Calendar & Slack integrations',
+                  'Google Sheets & Drive data export',
+                  'Custom workflow automations',
+                  'SMS & email parent alerts',
+                  'Report & slide deck generator',
                 ].map((item, i) => (
                   <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, fontSize: 15, color: '#230603', lineHeight: 1.4 }}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#800532" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d="M20 6L9 17l-5-5" /></svg>
@@ -475,7 +567,7 @@ export default function LandingPage() {
               backgroundColor: '#FAF3EC', borderRadius: 24, padding: 48, border: '1px solid transparent'
             }}>
               <h3 style={{ fontSize: 24, fontWeight: 700, color: '#230603', margin: '0 0 8px' }}>District Enterprise</h3>
-              <p style={{ fontSize: 15, color: 'rgba(35,6,3,0.55)', margin: '0 0 24px' }}>For large districts requiring SIS sync and compliance tools.</p>
+              <p style={{ fontSize: 15, color: 'rgba(35,6,3,0.55)', margin: '0 0 24px' }}>For large districts requiring SIS sync, compliance tools, and Microsoft ecosystem support.</p>
               <div style={{ marginBottom: 32, height: 56, display: 'flex', alignItems: 'center' }}>
                 <span style={{ fontSize: 32, fontWeight: 700, color: '#230603', letterSpacing: '-1.5px' }}>Custom</span>
                 <span style={{ fontSize: 15, color: 'rgba(35,6,3,0.5)', fontWeight: 500, marginLeft: 8 }}>per student pricing</span>
@@ -483,10 +575,13 @@ export default function LandingPage() {
               <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 32px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {[
                   'Everything in School Team, plus:',
-                  'Direct SIS/LMS integrations (PowerSchool, Canvas)',
+                  'Microsoft Teams, Outlook & Excel integrations',
+                  'Direct SIS/LMS sync (PowerSchool, Canvas)',
+                  'Notion workspace for intervention docs',
                   'FERPA-compliant bulk data export',
                   'District-wide analytics & cohort heatmaps',
-                  'Dedicated success manager',
+                  'SSO & role-based access control',
+                  'Dedicated success manager & onboarding',
                 ].map((item, i) => (
                   <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, fontSize: 15, color: '#230603', lineHeight: 1.4 }}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={i === 0 ? 'rgba(35,6,3,0.3)' : '#800532'} strokeWidth={i === 0 ? '2' : '2.5'} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d="M20 6L9 17l-5-5" /></svg>
@@ -541,7 +636,7 @@ export default function LandingPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
                 { label: 'Features', href: '#features' },
-                { label: 'How it Works', href: '#how-it-works' },
+                { label: 'Integrations', href: '#integrations' },
                 { label: 'Educators', href: '#testimonials' },
                 { label: 'Pricing', href: '#pricing' },
                 { label: 'Sign In', href: '/signin' },

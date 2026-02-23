@@ -29,7 +29,7 @@ export async function sendEmailStep(config: SendEmailConfig): Promise<ExecutionR
 
     try {
         const { data, error } = await resend.emails.send({
-            from: from || 'onboarding@resend.dev', // Use a default verified domain/sender
+            from: from || 'RIN Notifications <noreply@withrin.co>',
             to: to,
             subject: subject,
             html: body,

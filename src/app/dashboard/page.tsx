@@ -271,7 +271,7 @@ function InputBox({ value, onChange, onSend, isLoading, hasMessages = false, con
               onKeyDown={handleKeyDown}
               onFocus={() => !hasMessages && value.trim() && setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 160)}
-              placeholder="Ask RIN about a student… (Shift+Enter for new line)"
+              placeholder="Ask about a student… (Shift+Enter for new line)"
               rows={1}
               style={{
                 fontSize: '16px',
@@ -291,6 +291,46 @@ function InputBox({ value, onChange, onSend, isLoading, hasMessages = false, con
                 borderRadius: '18px 18px 0 0',
               }}
             />
+
+            {/* Selected tool chips — show as compact pills above toolbar */}
+            {selectedToolkits.length > 0 && (
+              <div style={{
+                padding: '4px 14px 6px',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '6px',
+              }}>
+                {connectedToolkits
+                  .filter(t => selectedToolkits.includes(t.slug))
+                  .map(t => (
+                    <button
+                      key={t.slug}
+                      onClick={() => onToggleToolkit(t.slug)}
+                      className="rin-tool-chip"
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '5px',
+                        padding: '4px 8px 4px 6px',
+                        background: 'rgba(5,128,80,0.07)',
+                        border: '1px solid rgba(5,128,80,0.18)',
+                        borderRadius: '20px',
+                        cursor: 'pointer',
+                        fontSize: '12px', fontWeight: 500, color: '#058050',
+                        fontFamily: "'DM Sans', system-ui, sans-serif",
+                        lineHeight: '1',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {t.icon
+                        ? <img src={t.icon} width={13} height={13} style={{ flexShrink: 0, objectFit: 'contain', borderRadius: 3 }} alt={t.name} />
+                        : <span style={{ fontSize: 11 }}>⚡</span>
+                      }
+                      <span>{t.name}</span>
+                      <span style={{ marginLeft: '2px', fontSize: '11px', opacity: 0.7, lineHeight: 1 }}>×</span>
+                    </button>
+                  ))
+                }
+              </div>
+            )}
 
             {/* Toolbar */}
             <div style={{
@@ -547,6 +587,12 @@ export default function DashboardPage() {
         .rin-tool-item:hover { background: rgb(243,240,236) !important; }
         .rin-suggestion-item:hover { background: rgb(250,250,249) !important; }
         .rin-send-btn:hover:not(:disabled) { background: #800532 !important; transform: scale(1.05); }
+
+        .rin-tool-chip:hover {
+          background: rgba(220,38,38,0.07) !important;
+          border-color: rgba(220,38,38,0.2) !important;
+          color: #dc2626 !important;
+        }
 
         .rin-chip {
           transition: all 0.2s cubic-bezier(0.4,0,0.2,1);

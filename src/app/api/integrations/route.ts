@@ -118,3 +118,27 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+
+// ─── DELETE /api/integrations — disconnect a connected account ───────────────
+export async function DELETE(req: NextRequest) {
+    if (!process.env.COMPOSIO_API_KEY) {
+        return NextResponse.json({ error: 'Composio not configured' }, { status: 500 });
+    }
+
+    try {
+        const body = await req.json();
+        const { connectedAccountId } = body;
+
+        if (!connectedAccountId) {
+            return NextResponse.json({ error: 'connectedAccountId is required' }, { status: 400 });
+        }
+
+        const composio = new Composio({ apiKey: process.env.COMPOSIO_API_KEY });
+        await composio.connectedAccounts.delete(connectedAccountId);
+
+        return NextResponse.json({ success: true });
+    } catch (error: any) {
+        console.error('[/api/integrations/disconnect] Error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}

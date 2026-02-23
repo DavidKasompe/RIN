@@ -227,22 +227,31 @@ export default function OnboardingPage() {
                             You're all set! Just so you know, RIN automatically integrates with the tools you already use to silently build risk profiles without extra data entry.
                         </p>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, marginBottom: 40 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 40 }}>
                             {[
-                                { imgSrc: 'https://www.gstatic.com/classroom/logo_square_rounded.svg', name: 'Classroom' },
-                                { icon: 'devicon:moodle', name: 'Moodle LMS' },
+                                { icon: 'logos:google-gmail', name: 'Gmail' },
+                                { icon: 'logos:slack-icon', name: 'Slack' },
                                 { icon: 'logos:google-calendar', name: 'Calendar' },
-                                { icon: 'ri:notion-fill', name: 'Notion Base' },
+                                { imgSrc: 'https://www.gstatic.com/classroom/logo_square_rounded.svg', name: 'Classroom' },
+                                { icon: 'logos:google-sheets', name: 'Sheets' },
+                                { icon: 'logos:google-drive', name: 'Drive' },
+                                { icon: 'ri:notion-fill', name: 'Notion', color: '#230603' },
+                                { icon: 'logos:microsoft-teams', name: 'Teams' },
                             ].map(int => (
-                                <div key={int.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '32px 24px', backgroundColor: 'white', borderRadius: 20, border: '1px solid rgba(128,5,50,0.1)' }}>
+                                <div key={int.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '24px 16px', backgroundColor: 'white', borderRadius: 16, border: '1px solid rgba(128,5,50,0.1)' }}>
                                     {int.imgSrc ? (
-                                        <img src={int.imgSrc} width={56} height={56} style={{ borderRadius: 10 }} alt={int.name} />
+                                        <img src={int.imgSrc} width={40} height={40} style={{ borderRadius: 8 }} alt={int.name} />
                                     ) : (
-                                        <Icon icon={int.icon!} width="56" height="56" style={{ color: int.icon === 'ri:notion-fill' ? '#230603' : undefined }} />
+                                        <Icon icon={int.icon!} width="40" height="40" style={{ color: (int as any).color || undefined }} />
                                     )}
-                                    <span style={{ fontSize: 14, fontWeight: 700, color: '#230603', textAlign: 'center' }}>{int.name}</span>
+                                    <span style={{ fontSize: 13, fontWeight: 600, color: '#230603', textAlign: 'center' }}>{int.name}</span>
                                 </div>
                             ))}
+                            {/* "& more" card */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '24px 16px', backgroundColor: 'rgba(128,5,50,0.03)', borderRadius: 16, border: '1px dashed rgba(128,5,50,0.15)' }}>
+                                <span style={{ fontSize: 22, fontWeight: 700, color: 'rgba(128,5,50,0.4)' }}>+3</span>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(35,6,3,0.4)', textAlign: 'center' }}>& more</span>
+                            </div>
                         </div>
                         <button
                             onClick={finishOnboarding}

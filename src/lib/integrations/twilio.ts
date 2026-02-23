@@ -33,12 +33,22 @@ export async function sendSMSStep(config: SendSMSConfig): Promise<ExecutionResul
             to: to,
         });
 
+        console.log(`[Twilio] SMS sent successfully. SID: ${response.sid}`);
         return {
             success: true,
-            data: { messageSid: response.sid, to }
+            data: { messageSid: response.sid, to, status: response.status }
         };
     } catch (err: any) {
-        console.error("Twilio Error:", err);
-        return { success: false, error: err.message };
+        const errCode = err.code;
+        const errMsg = err.message;
+        const moreInfo = err.moreInfo || '';
+        console.error(`[Twilio Error ${errCode}] ${errMsg}`, moreInfo);
+        // Common codes: 21608 = unverified number (trial), 21211 = invalid to number
+        const hint = errCode === 21608
+            ? ' — Twilio trial accounts can only send to verified numbers. Visit twilio.com/console to verify the recipient or upgrade your account.'
+            : errCode === 21211
+                ? ' — Invalid phone number format. Include country code (e.g. +260777731615).'
+                : moreInfo ? ` — ${moreInfo}` : '';
+        return { success: false, error: `${errMsg}${hint}` };
     }
 }

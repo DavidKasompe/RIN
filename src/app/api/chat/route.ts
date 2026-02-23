@@ -20,6 +20,9 @@ import { getInterventionsTool } from '@/mastra/tools/getInterventionsTool';
 import { searchStudentNotesTool } from '@/mastra/tools/searchStudentNotesTool';
 import { triggerWorkflowTool } from '@/mastra/tools/triggerWorkflowTool';
 import { requestAutomationTool } from '@/mastra/tools/requestAutomationTool';
+// Custom notification integrations (Twilio SMS, Resend Email)
+import { sendSMSStep } from '@/lib/integrations/twilio';
+import { sendEmailStep } from '@/lib/integrations/resend';
 
 // Composio integration
 import { Composio } from '@composio/core';
@@ -46,38 +49,137 @@ const BASE_SYSTEM_PROMPT = `You are RIN, an AI-powered student dropout risk inte
 
 IMPORTANT: You have real-time access to the school database via tools. ALWAYS use tools to fetch real student data before answering questions about specific students. Never make up or estimate student data.
 
-Available tools:
+Core tools (always available):
 - getStudentProfile: Fetch a student's demographic info, attendance rate, risk score and category, notes, and tags.
 - getStudentAcademics: Fetch a student's GPA, assignment completion rate, and late submission count.
 - getInterventions: Fetch a student's intervention history, active action plan, behavior referrals, and scheduled meetings.
 - searchStudentNotes: Semantic search across counselor notes, IEP summaries, and disciplinary reports.
-- create_report: Generate a downloadable PDF risk report for a student or cohort.
-- create_slides: Generate a slide presentation for school boards, parent meetings, or counselor teams.
+- sendSMS: Send SMS via Twilio. Use when educator asks to text a parent or contact.
+- sendEmail: Fallback email via school notification system. Only use this if Gmail/Outlook are NOT connected.
+- create_report: Generate a downloadable PDF risk report.
+- create_slides: Generate a slide presentation.
 - edit_artifact: Edit a previously generated report or presentation.
+- triggerWorkflow: Start a predefined automation workflow.
+- requestAutomation: Create a new smart notification or rule from chat.
 
-Workflow for student queries:
-1. If a specific student is mentioned, call getStudentProfile first (by name or ID).
+Student query workflow:
+1. If a specific student is mentioned, call getStudentProfile first.
 2. Augment with getStudentAcademics and/or getInterventions if needed.
-3. Use searchStudentNotes for qualitative context ("why has attendance dropped?").
+3. Use searchStudentNotes for qualitative context.
 4. Present findings using rich C1 visual components: stat cards, tables, progress bars, badges, callouts.
 
-Workflow automation (NEW):
-- If the educator asks to "start a workflow", "send alerts", or run a specific system automation, use the \`triggerWorkflow\` tool.
-- If the educator asks for a *new* smart notification or rule ("Remind me if Sarah misses tomorrow"), use the \`requestAutomation\` tool to draft a workflow.
+Workflow automation:
+- If asked to "start a workflow" or "send alerts", use triggerWorkflow.
+- If asked for a NEW smart notification or rule, use requestAutomation.
 
-When presenting risk data:
-- Show risk score prominently in a stat card or highlight box.
-- Use a table for contributing risk factors with impact percentages.
+Presentation:
+- Show risk scores in stat cards or highlight boxes.
+- Use tables for risk factors with impact percentages.
 - Use prioritized lists (High/Medium/Low) for intervention steps.
 
-When scheduling meetings or adding events to the calendar:
-- ALWAYS use the \`GOOGLECALENDAR_CREATE_EVENT\` tool if available to sync directly with the user's Google Calendar.
-- If asked for a "Meet link" or "video call", ensure you use \`GOOGLECALENDAR_CREATE_EVENT\` (it automatically generates a Google Meet link by default).
-- If inviting parents, first check the \`getStudentProfile\` tool for the parent's email address and include it in the \`attendees\` array.
-- If the parent's email is NOT found in the profile, explicitly ask the user for the email address first before creating the event.
-- After successfully creating the event, clearly announce: "Event created with [Student Name]'s parent" and confirm that a Meet link was included.
-
 Always be empathetic, evidence-based, and action-oriented. Never stigmatize students.`;
+
+// ─── Dynamic integration prompt builder ───────────────────────────────────────
+function buildIntegrationPrompt(composioToolNames: string[]): string {
+    const has = (prefix: string) => composioToolNames.some(n => n.startsWith(prefix));
+    const sections: string[] = [];
+
+    // ── Email ─────────────────────────────────────────
+    if (has('GMAIL_')) {
+        sections.push(`[EMAIL — Gmail ✅]:
+- ALWAYS use \`GMAIL_SEND_EMAIL\` to send emails. It sends from the user's own Gmail.
+- Do NOT use the fallback \`sendEmail\` tool when Gmail is connected.
+- For drafts, use \`GMAIL_CREATE_EMAIL_DRAFT\`.`);
+    } else if (has('OUTLOOK_')) {
+        sections.push(`[EMAIL — Outlook ✅]:
+- Use \`OUTLOOK_SEND_EMAIL\` to send emails from the user's Outlook account.
+- For drafts use \`OUTLOOK_CREATE_EMAIL_DRAFT\`.
+- Do NOT use the fallback \`sendEmail\` tool when Outlook is connected.`);
+    } else {
+        sections.push(`[EMAIL — Fallback]:
+- Gmail and Outlook are NOT connected. Use the \`sendEmail\` tool (sends from noreply@withrin.co).
+- Always include the educator's name and school in the email signature.`);
+    }
+
+    // ── Calendar ──────────────────────────────────────
+    if (has('GOOGLECALENDAR_')) {
+        sections.push(`[CALENDAR — Google Calendar ✅]:
+- Use \`GOOGLECALENDAR_CREATE_EVENT\` to schedule meetings. It auto-generates Google Meet links.
+- Use \`GOOGLECALENDAR_FIND_EVENT\` to look up existing events.
+- When inviting parents, first call getStudentProfile for their email and include it in attendees.
+- If no parent email found, ask the user for it before creating the event.
+- After creating, confirm with event title and Meet link.`);
+    } else if (has('OUTLOOK_CREATE_CALENDAR_EVENT')) {
+        sections.push(`[CALENDAR — Outlook ✅]:
+- Use \`OUTLOOK_CREATE_CALENDAR_EVENT\` to schedule meetings via Outlook.
+- Use \`OUTLOOK_LIST_EVENTS\` to check the educator's upcoming schedule.`);
+    } else {
+        sections.push(`[CALENDAR]: No calendar integration connected. Events are saved to the local database only.`);
+    }
+
+    // ── Team Messaging ────────────────────────────────
+    if (has('SLACK_')) {
+        sections.push(`[TEAM MESSAGING — Slack ✅]:
+- Use \`SLACK_SENDS_A_MESSAGE_TO_A_SLACK_CHANNEL\` to post messages to school channels.
+- Use \`SLACK_SEND_MESSAGE\` for direct messages.
+- Use \`SLACK_LIST_ALL_CHANNELS\` or \`SLACK_FIND_CHANNELS\` to discover channel names/IDs.
+- Use \`SLACK_SEARCH_MESSAGES\` to search Slack history.
+- Great for: risk alerts to counselor channels, team notifications, daily digests.`);
+    } else if (has('MICROSOFT-TEAMS_')) {
+        sections.push(`[TEAM MESSAGING — Microsoft Teams ✅]:
+- Use \`MICROSOFT-TEAMS_POST_MESSAGE_TO_TEAMS_CHANNEL\` for channel alerts.
+- Use \`MICROSOFT-TEAMS_SEND_MESSAGE_TO_TEAMS_CHAT\` for direct messages.
+- Use \`MICROSOFT-TEAMS_CREATE_ONLINE_MEETING\` for scheduling Teams video calls.
+- Use \`MICROSOFT-TEAMS_LIST_TEAMS\` and \`MICROSOFT-TEAMS_LIST_TEAM_CHANNELS\` to discover teams/channels.`);
+    } else {
+        sections.push(`[TEAM MESSAGING]: Slack and Teams are NOT connected. Use sendSMS or email as alternatives for team alerts.`);
+    }
+
+    // ── Documents & Notes ─────────────────────────────
+    if (has('NOTION_')) {
+        sections.push(`[DOCUMENTS — Notion ✅]:
+- Use \`NOTION_CREATE_A_PAGE\` to export student reports, meeting notes, or intervention plans to Notion.
+- Use \`NOTION_UPDATE_A_PAGE\` to update existing pages.
+- Use \`NOTION_SEARCH_IN_NOTION\` to find existing documents in the workspace.`);
+    }
+
+    // ── Spreadsheets ──────────────────────────────────
+    if (has('GOOGLESHEETS_')) {
+        sections.push(`[SPREADSHEETS — Google Sheets ✅]:
+- Use \`GOOGLESHEETS_BATCH_UPDATE_SPREADSHEET\` to update attendance/grade sheets.
+- Use \`GOOGLESHEETS_LOOK_UP_SPREADSHEET_ROW\` to search for student data in sheets.
+- Use \`GOOGLESHEETS_CREATE_GOOGLE_SHEET\` to create new tracking spreadsheets.
+- Use \`GOOGLESHEETS_CREATE_CHART_IN_GOOGLE_SHEETS\` to visualize trends.`);
+    } else if (has('EXCEL_')) {
+        sections.push(`[SPREADSHEETS — Excel ✅]:
+- Use \`EXCEL_ADD_TABLE_ROW\` to log attendance/risk data to school workbooks.
+- Use \`EXCEL_GET_RANGE\` and \`EXCEL_UPDATE_RANGE\` to read/update data.
+- Use \`EXCEL_ADD_CHART\` to generate visual charts.
+- Use \`EXCEL_LIST_WORKSHEETS\` to discover available sheets.`);
+    }
+
+    // ── File Storage ──────────────────────────────────
+    if (has('GOOGLEDRIVE_')) {
+        sections.push(`[FILE STORAGE — Google Drive ✅]:
+- Use \`GOOGLEDRIVE_CREATE_A_FILE_FROM_TEXT\` to save reports to Drive.
+- Use \`GOOGLEDRIVE_FIND_FILE\` to search for existing documents.
+- Use \`GOOGLEDRIVE_ADD_FILE_SHARING_PREFERENCE\` to share files with staff or parents.
+- Use \`GOOGLEDRIVE_CREATE_A_FOLDER\` to organize school documents.`);
+    }
+
+    // ── LMS ───────────────────────────────────────────
+    if (has('GOOGLECLASSROOM_')) {
+        sections.push(`[LMS — Google Classroom ✅]:
+- Use Google Classroom tools to sync rosters, assignments, and course data.
+- Helpful for cross-referencing student enrollment with risk data.`);
+    }
+
+    if (sections.length === 0) {
+        return '\n\n[INTEGRATIONS]: No external integrations are currently connected. Use built-in tools (sendEmail, sendSMS, create_report) for all actions.';
+    }
+
+    return '\n\n─── CONNECTED INTEGRATIONS ───\n' + sections.join('\n\n');
+}
 
 // ─── Tool Definitions (OpenAI-format, passed to C1 API) ──────────────────────
 const C1_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
@@ -226,12 +328,66 @@ const C1_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
             },
         },
     },
+    {
+        type: 'function',
+        function: {
+            name: 'sendSMS',
+            description: 'Send an SMS text message to a phone number. Use this when the educator asks to send a text message or SMS to a parent, guardian, or any phone number.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    to: { type: 'string', description: 'The recipient phone number including country code (e.g., "+260777731615")' },
+                    message: { type: 'string', description: 'The text message content to send.' },
+                },
+                required: ['to', 'message'],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'sendEmail',
+            description: 'Send an email to a recipient. Use this when the educator asks to send an email to a parent, guardian, or any email address.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    to: { type: 'string', description: 'The recipient email address.' },
+                    subject: { type: 'string', description: 'The email subject line.' },
+                    body: { type: 'string', description: 'The HTML or plain text email body.' },
+                },
+                required: ['to', 'subject', 'body'],
+            },
+        },
+    },
 ];
 
 // ─── Mastra Tool Executor ─────────────────────────────────────────────────────
 type MastraTool = { execute?: (input: any, ctx: any) => Promise<any> };
 
 async function executeMastraTool(name: string, args: Record<string, any>): Promise<string> {
+    // Handle custom notification tools directly — bypass Mastra wrapper
+    if (name === 'sendSMS') {
+        try {
+            const result = await sendSMSStep({ to: args.to, message: args.message });
+            return JSON.stringify(result);
+        } catch (err) {
+            return JSON.stringify({ success: false, error: String(err) });
+        }
+    }
+    if (name === 'sendEmail') {
+        try {
+            const result = await sendEmailStep({
+                to: args.to,
+                subject: args.subject,
+                body: args.body,
+                from: args.from || undefined, // Let AI specify from, or fall back to default noreply@withrin.co
+            });
+            return JSON.stringify(result);
+        } catch (err) {
+            return JSON.stringify({ success: false, error: String(err) });
+        }
+    }
+
     const toolMap: Record<string, MastraTool> = {
         getStudentProfile: getStudentProfileTool,
         getStudentAcademics: getStudentAcademicsTool,
@@ -318,13 +474,46 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Messages are required' }, { status: 400 });
         }
 
-        // Get the active user session for Composio account connection
-        // Only run Composio stuff if there's a valid COMPOSIO_API_KEY
-        let composioTools: OpenAI.Chat.ChatCompletionTool[] = [];
-        let composioSession: any = null;
-        let composioInstance: any = null;
+        // ── START STREAM IMMEDIATELY — user sees think state within milliseconds ──
+        // Everything else (Composio init, LLM calls) happens inside the async IIFE below.
+        const c1Response = makeC1Response();
+        c1Response.writeThinkItem({
+            title: 'Analyzing your request…',
+            description: 'RIN is thinking…',
+        });
 
-        if (process.env.COMPOSIO_API_KEY) {
+        // ── Encode responseStream → bytes for NextResponse (set up before the IIFE) ──
+        const encoder = new TextEncoder();
+        const encodedStream = new ReadableStream<Uint8Array>({
+            async start(controller) {
+                const reader = (c1Response.responseStream as ReadableStream<string>).getReader();
+                try {
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) { controller.close(); break; }
+                        controller.enqueue(encoder.encode(value));
+                    }
+                } catch (err) {
+                    controller.error(err);
+                }
+            },
+        });
+
+        // Fire response immediately so browser gets the stream — IIFE below populates it
+        const streamResponse = new NextResponse(encodedStream, {
+            headers: {
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache, no-transform',
+                'Connection': 'keep-alive',
+            },
+        });
+
+        // ── Async background worker: init tools then drive the LLM loop ──
+        (async () => {
+            let composioTools: OpenAI.Chat.ChatCompletionTool[] = [];
+            let composioSession: any = null;
+            let composioInstance: any = null;
+
             try {
                 // Determine user ID
                 const authSession = await auth.api.getSession({ headers: req.headers });
@@ -348,7 +537,7 @@ export async function POST(req: NextRequest) {
                 // Initialize Composio natively
                 composioInstance = new Composio({ apiKey: process.env.COMPOSIO_API_KEY });
 
-                // We create a session for both the user and the school
+                // We create a session for the user — store its ID for meta-tool execution
                 composioSession = await composioInstance.create(userId);
                 const composioSchoolSession = await composioInstance.create(schoolId);
 
@@ -364,7 +553,7 @@ export async function POST(req: NextRequest) {
                     type: 'function',
                     function: {
                         name: t.function.name,
-                        description: t.function.description || 'Composio toolkit action',
+                        description: t.function.description || 'Connected app action',
                         parameters: t.function.parameters || t.inputSchema || { type: 'object', properties: {} },
                     }
                 })) as OpenAI.Chat.ChatCompletionTool[];
@@ -372,203 +561,228 @@ export async function POST(req: NextRequest) {
             } catch (err) {
                 console.error('Failed to initialize Composio tools:', err);
             }
-        }
 
-        // Merge the Mastra C1 tools with the dynamic Composio tools
-        const ALL_TOOLS = [...C1_TOOLS, ...composioTools];
+            // ── CUSTOM_TOOLS are built-in tools served by our own code — never route through Composio
+            const CUSTOM_TOOLS = new Set([
+                'getStudentProfile', 'getStudentAcademics', 'getInterventions',
+                'searchStudentNotes', 'triggerWorkflow', 'requestAutomation',
+                'sendSMS', 'sendEmail',
+                'create_report', 'create_slides', 'edit_artifact',
+            ]);
+            const rawTools = [...C1_TOOLS, ...composioTools];
+            const ALL_TOOLS = Array.from(
+                new Map((rawTools as any[]).map(tool => [tool.function.name, tool])).values()
+            ) as OpenAI.Chat.ChatCompletionTool[];
 
-        const c1Response = makeC1Response();
+            // Inject student context into system prompt if available
+            let systemContent = BASE_SYSTEM_PROMPT;
 
-        c1Response.writeThinkItem({
-            title: 'Analyzing your request…',
-            description: 'RIN is checking student records and preparing a response.',
-        });
-
-        // Inject student context into system prompt if available
-        let systemContent = BASE_SYSTEM_PROMPT;
-        if (currentViewContext) {
-            const contextId = currentViewContext.studentId
-                ? `Student ID: ${currentViewContext.studentId}`
-                : JSON.stringify(currentViewContext);
-            systemContent = `ACTIVE CONTEXT: Educator is viewing ${contextId}. Automatically fetch this student's data if relevant.\n\n${systemContent}`;
-        }
-
-        if (activeToolkits && activeToolkits.length > 0) {
-            systemContent += `\n\n[USER ACTION]: The user has explicitly selected the following external tools for this task: ${activeToolkits.join(', ')}. YOU MUST PRIORITIZE USING THESE TOOLS IF APPLICABLE.`;
-        }
-
-        // Build message history — start with system prompt
-        const conversationMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-            { role: 'system', content: systemContent },
-            ...messages,
-        ];
-
-        // ── Manual tool-call loop ─────────────────────────────────────────────
-        // Standard OpenAI pattern: send messages → if tool_calls in response → execute tools → append results → repeat
-        // This works with the C1 API because it's fully OpenAI-compatible.
-        (async () => {
+            // Inject user identity so emails/communications use real names
             try {
-                const ARTIFACT_TOOLS = new Set(['create_report', 'create_slides', 'edit_artifact']);
-                let iterations = 0;
-                const MAX_ITERATIONS = 6; // safety limit
+                const identitySession = await auth.api.getSession({ headers: req.headers });
+                const uid = identitySession?.user?.id;
+                if (uid) {
+                    const { db: idb } = await import('@/db');
+                    const { users: usersTable, schools: schoolsTable } = await import('@/db/schema');
+                    const { eq } = await import('drizzle-orm');
+                    if (idb) {
+                        const [me] = await idb.select().from(usersTable).where(eq(usersTable.id, uid));
+                        if (me) {
+                            let schoolName = 'your school';
+                            if (me.schoolId) {
+                                const [sch] = await idb.select().from(schoolsTable).where(eq(schoolsTable.id, me.schoolId));
+                                if (sch) schoolName = sch.name;
+                            }
+                            systemContent = `YOUR IDENTITY (the logged-in educator):\n- Name: ${me.name}\n- Email: ${me.email}\n- Role: ${me.role}\n- School: ${schoolName}\n\nWhen composing emails, letters, or any communication on behalf of this educator, ALWAYS sign with their real name, role, and school. NEVER use placeholders like [Your Name] or [School Name].\n\n${systemContent}`;
+                        }
+                    }
+                }
+            } catch (e) { /* identity lookup failed — proceed without */ }
 
-                while (iterations < MAX_ITERATIONS) {
-                    iterations++;
+            // ── Dynamic integration detection & prompt injection ──
+            const composioToolNames = (composioTools as any[]).map((t: any) => t.function.name as string);
+            systemContent += buildIntegrationPrompt(composioToolNames);
 
-                    // Non-streaming first pass to check for tool calls
-                    const response = await chatClient.chat.completions.create({
-                        model: 'c1/anthropic/claude-sonnet-4/v-20251230',
-                        messages: conversationMessages,
-                        tools: ALL_TOOLS.length > 0 ? ALL_TOOLS : undefined,
-                        tool_choice: ALL_TOOLS.length > 0 ? 'auto' : undefined,
-                        stream: false,
-                    });
+            if (currentViewContext) {
+                const contextId = currentViewContext.studentId
+                    ? `Student ID: ${currentViewContext.studentId}`
+                    : JSON.stringify(currentViewContext);
+                systemContent = `ACTIVE CONTEXT: Educator is viewing ${contextId}. Automatically fetch this student's data if relevant.\n\n${systemContent}`;
+            }
 
-                    const choice = response.choices[0];
-                    const assistantMessage = choice.message;
+            if (activeToolkits && activeToolkits.length > 0) {
+                systemContent += `\n\n[USER ACTION]: The user has explicitly selected the following external tools for this task: ${activeToolkits.join(', ')}. YOU MUST PRIORITIZE USING THESE TOOLS IF APPLICABLE.`;
+            }
 
-                    // 1. No tool calls — final response, stream it out
-                    if (!assistantMessage.tool_calls?.length) {
-                        // Stream the final C1 DSL response for rich rendering
-                        const finalStream = await chatClient.chat.completions.create({
+            // Build message history — start with system prompt
+            const conversationMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+                { role: 'system', content: systemContent },
+                ...messages,
+            ];
+
+            // ── Manual tool-call loop ─────────────────────────────────────────────
+            // Standard OpenAI pattern: send messages → if tool_calls in response → execute tools → append results → repeat
+            // This works with the C1 API because it's fully OpenAI-compatible.
+            (async () => {
+                try {
+                    const ARTIFACT_TOOLS = new Set(['create_report', 'create_slides', 'edit_artifact']);
+                    let iterations = 0;
+                    const MAX_ITERATIONS = 10; // allow complex multi-tool tasks (email + calendar + lookups)
+
+                    while (iterations < MAX_ITERATIONS) {
+                        iterations++;
+
+                        // Non-streaming first pass to check for tool calls
+                        const response = await chatClient.chat.completions.create({
                             model: 'c1/anthropic/claude-sonnet-4/v-20251230',
                             messages: conversationMessages,
                             tools: ALL_TOOLS.length > 0 ? ALL_TOOLS : undefined,
                             tool_choice: ALL_TOOLS.length > 0 ? 'auto' : undefined,
-                            stream: true,
+                            stream: false,
                         });
 
-                        for await (const chunk of finalStream) {
-                            const content = chunk.choices[0]?.delta?.content;
-                            if (content) c1Response.writeContent(content);
+                        const choice = response.choices[0];
+                        const assistantMessage = choice.message;
+
+                        // 1. No tool calls — final response, stream it out
+                        if (!assistantMessage.tool_calls?.length) {
+                            // Stream the final C1 DSL response for rich rendering
+                            const finalStream = await chatClient.chat.completions.create({
+                                model: 'c1/anthropic/claude-sonnet-4/v-20251230',
+                                messages: conversationMessages,
+                                tools: ALL_TOOLS.length > 0 ? ALL_TOOLS : undefined,
+                                tool_choice: ALL_TOOLS.length > 0 ? 'auto' : undefined,
+                                stream: true,
+                            });
+
+                            for await (const chunk of finalStream) {
+                                const content = chunk.choices[0]?.delta?.content;
+                                if (content) c1Response.writeContent(content);
+                            }
+
+                            break;
                         }
 
-                        break;
-                    }
+                        // 2. Tool calls present — append assistant message to conversation
+                        conversationMessages.push({
+                            role: 'assistant',
+                            content: assistantMessage.content ?? null,
+                            tool_calls: assistantMessage.tool_calls,
+                        });
 
-                    // 2. Tool calls present — append assistant message to conversation
-                    conversationMessages.push({
-                        role: 'assistant',
-                        content: assistantMessage.content ?? null,
-                        tool_calls: assistantMessage.tool_calls,
-                    });
+                        for (const toolCall of assistantMessage.tool_calls) {
+                            // Type guard: only 'function' tool calls have .function.name / .arguments
+                            if (toolCall.type !== 'function') continue;
 
-                    for (const toolCall of assistantMessage.tool_calls) {
-                        // Type guard: only 'function' tool calls have .function.name / .arguments
-                        if (toolCall.type !== 'function') continue;
+                            const toolName = toolCall.function.name;
+                            const toolArgs = JSON.parse(toolCall.function.arguments || '{}');
 
-                        const toolName = toolCall.function.name;
-                        const toolArgs = JSON.parse(toolCall.function.arguments || '{}');
+                            // ── Friendly, opaque think items — never disclose internal tool names ──
+                            const MASTRA_TOOLS = new Set(['getStudentProfile', 'getStudentAcademics', 'getInterventions', 'searchStudentNotes', 'triggerWorkflow', 'requestAutomation']);
+                            if (!ARTIFACT_TOOLS.has(toolName)) {
+                                let thinkTitle = 'Working on it…';
+                                let thinkDesc = 'Gathering information to respond.';
+                                if (MASTRA_TOOLS.has(toolName)) {
+                                    thinkTitle = 'Looking at student records…';
+                                    thinkDesc = toolArgs.query ? `Searching for information about "${toolArgs.query}".` : 'Pulling data from the school database.';
+                                } else if (toolName === 'sendSMS') {
+                                    thinkTitle = 'Sending SMS…';
+                                    thinkDesc = `Delivering the message to ${toolArgs.to || 'the recipient'}.`;
+                                } else if (toolName === 'sendEmail') {
+                                    thinkTitle = 'Sending email…';
+                                    thinkDesc = `Preparing message for ${toolArgs.to || 'the recipient'}.`;
+                                } else if (toolName.startsWith('GOOGLECALENDAR')) {
+                                    thinkTitle = 'Checking your calendar…';
+                                    thinkDesc = 'Syncing with Google Calendar.';
+                                } else if (toolName.startsWith('GMAIL')) {
+                                    thinkTitle = 'Sending email…';
+                                    thinkDesc = 'Preparing and sending the message.';
+                                }
+                                c1Response.writeThinkItem({ title: thinkTitle, description: thinkDesc });
+                            }
 
-                        // Show thinking state for each Mastra tool call
-                        if (!ARTIFACT_TOOLS.has(toolName)) {
-                            c1Response.writeThinkItem({
-                                title: `Querying database: ${toolName}…`,
-                                description: `Fetching ${toolArgs.query ? `data for "${toolArgs.query}"` : 'student records'} from school database.`,
+                            let toolResult: string;
+                            if (ARTIFACT_TOOLS.has(toolName)) {
+                                // Artifact tools stream content directly into c1Response
+                                toolResult = await executeArtifactTool(toolName, toolArgs, c1Response);
+                            } else if (toolName.startsWith('COMPOSIO_')) {
+                                // Composio META-tools (COMPOSIO_SEARCH_TOOLS, COMPOSIO_MANAGE_CONNECTIONS)
+                                // These are internal framework tools — execute via executeMetaTool with the session ID
+                                try {
+                                    if (!composioInstance || !composioSession) {
+                                        throw new Error("External integrations not initialized");
+                                    }
+                                    let executorUserId = 'anonymous_educator';
+                                    try {
+                                        const authSession = await auth.api.getSession({ headers: req.headers });
+                                        executorUserId = authSession?.user?.id || 'anonymous_educator';
+                                    } catch (e) { /* silent fail */ }
+
+                                    // Meta-tools require sessionId (the session object ID), not userId
+                                    const sessionId: string = (composioSession as any).id
+                                        || (composioSession as any).sessionId
+                                        || executorUserId;
+                                    const result = await composioInstance.tools.executeMetaTool(toolName, {
+                                        sessionId,
+                                        arguments: toolArgs,
+                                    });
+                                    toolResult = typeof result === 'string' ? result : JSON.stringify(result);
+                                } catch (error) {
+                                    console.error(`[Meta Tool Error - ${toolName}]:`, error);
+                                    // Gracefully degrade: return empty so conversation continues
+                                    toolResult = JSON.stringify({ tools: [], message: 'Tool search unavailable, proceeding without discovery.' });
+                                }
+
+                            } else if (!CUSTOM_TOOLS.has(toolName) && (composioTools as any[]).some((t: any) => t.function.name === toolName)) {
+                                // Regular Composio toolkit tools (GOOGLECALENDAR_*, GMAIL_*, etc.)
+                                try {
+                                    if (!composioInstance) {
+                                        throw new Error("External integrations not initialized");
+                                    }
+                                    let executorUserId = 'anonymous_educator';
+                                    try {
+                                        const authSession = await auth.api.getSession({ headers: req.headers });
+                                        executorUserId = authSession?.user?.id || 'anonymous_educator';
+                                    } catch (e) { /* silent fail */ }
+
+                                    // ✅ Correct Composio SDK execution pattern:
+                                    // dangerouslySkipVersionCheck bypasses the version requirement for session-fetched tools
+                                    const result = await composioInstance.tools.execute(toolName, {
+                                        userId: executorUserId,
+                                        arguments: toolArgs,
+                                        dangerouslySkipVersionCheck: true,
+                                    });
+                                    toolResult = typeof result === 'string' ? result : JSON.stringify(result);
+                                } catch (error) {
+                                    console.error(`[External Tool Error - ${toolName}]:`, error);
+                                    toolResult = JSON.stringify({ error: `Could not complete the action. Please ensure the required service is connected in Settings > Integrations. (${String(error)})` });
+                                }
+
+                            } else {
+                                // Mastra tools execute DB queries and return JSON
+                                toolResult = await executeMastraTool(toolName, toolArgs);
+                            }
+
+                            // Append tool result to conversation
+                            conversationMessages.push({
+                                role: 'tool',
+                                tool_call_id: toolCall.id,
+                                content: toolResult,
                             });
                         }
-
-                        let toolResult: string;
-                        if (ARTIFACT_TOOLS.has(toolName)) {
-                            // Artifact tools stream content directly into c1Response
-                            toolResult = await executeArtifactTool(toolName, toolArgs, c1Response);
-                        } else if (toolName.startsWith('COMPOSIO_') || toolName.startsWith('composio_')) {
-                            // Let the Composio SDK execute its own tools directly using the session ID + raw arguments
-                            try {
-                                if (!composioSession) {
-                                    throw new Error("Composio session not initialized");
-                                }
-
-                                c1Response.writeThinkItem({
-                                    title: `Running remote action…`,
-                                    description: `Connecting to ${toolName.split('_')[1] || 'external service'} to perform the task.`,
-                                });
-
-                                // Some native agents require passing the exact original tool call ID instead
-                                // But since we are directly calling the API, we can use the composio provider directly
-                                // Try to find the actual tool in composio.tools() from either session
-                                const userToolsObj = await composioSession.tools();
-
-                                // Need to also import schoolId logic again here to execute school tools
-                                let toolSchoolId = 'no_school';
-                                try {
-                                    const { db } = await import('@/db');
-                                    const { users } = await import('@/db/schema');
-                                    const { eq } = await import('drizzle-orm');
-                                    const authSession = await auth.api.getSession({ headers: req.headers });
-                                    const uid = authSession?.user?.id || 'anonymous_educator';
-                                    if (db && uid !== 'anonymous_educator') {
-                                        const currentUserReq = await db.select().from(users).where(eq(users.id, uid));
-                                        if (currentUserReq.length > 0 && currentUserReq[0].schoolId) {
-                                            toolSchoolId = currentUserReq[0].schoolId;
-                                        }
-                                    }
-                                } catch (e) { }
-
-                                const schoolSessionObj = await composioInstance.create(toolSchoolId);
-                                const schoolToolsObj = await schoolSessionObj.tools();
-
-                                const targetTool = userToolsObj.find((t: any) => t.function.name === toolName)
-                                    || schoolToolsObj.find((t: any) => t.function.name === toolName);
-
-                                if (!targetTool) {
-                                    throw new Error(`Composio tool ${toolName} not found in user or school session`);
-                                }
-
-                                // The tool execution interface in native Composio objects
-                                const result = await targetTool.execute(toolArgs);
-                                toolResult = typeof result === 'string' ? result : JSON.stringify(result);
-
-                            } catch (error) {
-                                console.error(`[Composio Tool Execution Error - ${toolName}]:`, error);
-                                toolResult = JSON.stringify({ error: `Composio tool execution failed: ${String(error)}` });
-                            }
-                        } else {
-                            // Mastra tools execute DB queries and return JSON
-                            toolResult = await executeMastraTool(toolName, toolArgs);
-                        }
-
-                        // Append tool result to conversation
-                        conversationMessages.push({
-                            role: 'tool',
-                            tool_call_id: toolCall.id,
-                            content: toolResult,
-                        });
                     }
-                }
 
-                await c1Response.end();
-            } catch (err) {
-                console.error('[/api/chat] Stream error:', err);
-                c1Response.writeContent('\n\nSomething went wrong. Please try again.');
-                await c1Response.end();
-            }
-        })();
-
-        // Encode responseStream → bytes for NextResponse
-        const encoder = new TextEncoder();
-        const encodedStream = new ReadableStream<Uint8Array>({
-            async start(controller) {
-                const reader = (c1Response.responseStream as ReadableStream<string>).getReader();
-                try {
-                    while (true) {
-                        const { value, done } = await reader.read();
-                        if (done) { controller.close(); break; }
-                        controller.enqueue(encoder.encode(value));
-                    }
+                    await c1Response.end();
                 } catch (err) {
-                    controller.error(err);
+                    console.error('[/api/chat] Stream error:', err);
+                    c1Response.writeContent('\n\nSomething went wrong. Please try again.');
+                    await c1Response.end();
                 }
-            },
-        });
+            })(); // end LLM loop IIFE
 
-        return new NextResponse(encodedStream, {
-            headers: {
-                'Content-Type': 'text/event-stream',
-                'Cache-Control': 'no-cache, no-transform',
-                'Connection': 'keep-alive',
-            },
-        });
+        })(); // end background worker IIFE
+
+        return streamResponse;
     } catch (error) {
         console.error('[/api/chat] Error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
