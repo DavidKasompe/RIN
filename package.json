@@ -21,6 +21,7 @@
     "@mastra/mcp": "^1.0.1",
     "@neondatabase/serverless": "^1.0.2",
     "@radix-ui/react-dialog": "^1.1.15",
+    "@react-email/components": "^1.0.8",
     "@supabase/supabase-js": "^2.97.0",
     "@thesysai/genui-sdk": "^0.8.3",
     "@xyflow/react": "^12.10.1",
@@ -36,7 +37,10 @@
     "openai": "^6.22.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-email": "^5.2.8",
     "recharts": "^3.7.0",
+    "resend": "^6.9.2",
+    "twilio": "^5.12.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {

@@ -32,16 +32,14 @@ The Overview page highlights "flagged" or "at-risk" students. Currently, clickin
 - Ensure this seamless pattern (UI Action -> Context-Aware Chat Prompt) is applied consistently, not just on the Overview page, but also from the main Students list where applicable.
 
 
----- CREATE TOOLS FOR THE AGENT THAT WILL BE ABLE TO EXTRACT Transcripts and basically achieving a living and breathing platform, review integrations.md in the troot to understand this moore:
+## 4. Advanced AI Agent Analytics & Tracking
 
-- **Early warning triggers** — automated alerts when a student crosses a risk threshold
+To make the platform a "living and breathing" system, the AI needs tools to actively track, simulate, and predict student outcomes.
 
-- **Intervention tracking** — log what action was taken, by whom, on what date, and was it effective
-- **Student result trend viewer** — see a student's grade trajectory over time (not just snapshots)
-- **Notes & annotations** — per-student case notes with timestamps, update student view to include way to add complains, comments, keyword on behavior etc
-
-- **Scenario simulation** — "What if this student improves attendance by 10%?" risk trajectory
-- **Predictive cohort analysis** — which whole class groups are trending toward risk?
-
-
---- so create breakdown tasks for me so that this makes a bit more sense we break it down and finish this
+**Requirements:**
+- **Early warning triggers**: The AI should be able to scan real-time data and flag students crossing risk thresholds automatically.
+- **Intervention tracking**: Create tools for the AI to log actions taken, by whom, and monitor the effectiveness of these interventions over time.
+- **Student result trend viewer**: Enable the AI to analyze and visualize a student's grade trajectory, not just static snapshots.
+- **Notes & Annotations**: Update the student view to allow educators to add complaints, comments, or behavioral keywords. Ensure the AI indexes and factors these into its risk analysis.
+- **Scenario simulation**: Implement a tool allowing the AI to answer "What if?" questions (e.g., "What if attendance improves by 10%?").
+- **Predictive cohort analysis**: Create tools for the AI to identify which entire class groups or cohorts are trending toward risk.

@@ -142,17 +142,51 @@ export const calendarEvents = pgTable('calendar_events', {
     createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-// ─── Workflow Runs ───────────────────────────────────────────────────────────
-export const workflowRuns = pgTable('workflow_runs', {
-    id: text('id').primaryKey(),
+// ─── Workflows (Visual Builder) ───────────────────────────────────────────────
+export const workflows = pgTable('workflows', {
+    id: text('id').primaryKey(), // Generated like wf_123
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    workflowId: text('workflow_id').notNull(), // e.g. 'risk-assessment', 'class-scan'
-    status: text('status').notNull().default('pending'), // pending | running | completed | failed
-    inputData: jsonb('input_data').$type<Record<string, unknown>>().default({}),
-    result: jsonb('result').$type<Record<string, unknown>>(),
+    schoolId: text('school_id').references(() => schools.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    description: text('description'),
+    active: boolean('active').notNull().default(false),
+
+    // React Flow JSON State
+    nodes: jsonb('nodes').$type<Record<string, any>[]>().notNull().default([]),
+    edges: jsonb('edges').$type<Record<string, any>[]>().notNull().default([]),
+
+    // Execution metrics
+    triggerConfig: jsonb('trigger_config').$type<Record<string, any>>(),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// ─── Workflow Executions ─────────────────────────────────────────────────────
+export const workflowExecutions = pgTable('workflow_executions', {
+    id: text('id').primaryKey(),
+    workflowId: text('workflow_id').notNull().references(() => workflows.id, { onDelete: 'cascade' }),
+    status: text('status').notNull().default('running'), // running | success | failed
+    triggerData: jsonb('trigger_data').$type<Record<string, any>>(),
+    result: jsonb('result').$type<Record<string, any>>(),
     error: text('error'),
-    triggeredAt: timestamp('triggered_at').notNull().defaultNow(),
+
+    startedAt: timestamp('started_at').notNull().defaultNow(),
     completedAt: timestamp('completed_at'),
+});
+
+// ─── Workflow Execution Logs ─────────────────────────────────────────────────
+export const workflowExecutionLogs = pgTable('workflow_execution_logs', {
+    id: text('id').primaryKey(),
+    executionId: text('execution_id').notNull().references(() => workflowExecutions.id, { onDelete: 'cascade' }),
+    nodeId: text('node_id').notNull(),
+    nodeName: text('node_name'),
+    nodeType: text('node_type'),
+    status: text('status').notNull(), // success | failed
+    logs: jsonb('logs').$type<Record<string, any>>(),
+    error: text('error'),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
 // ─── Student Notes (For RAG) ──────────────────────────────────────────────────
@@ -160,14 +194,14 @@ export const studentNotes = pgTable('student_notes', {
     id: text('id').primaryKey(),
     studentId: text('student_id').notNull().references(() => students.id, { onDelete: 'cascade' }),
     authorId: text('author_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    
+
     // The qualitative content (e.g. counselor notes, IEP summary)
     content: text('content').notNull(),
     type: text('type').notNull().default('general'), // general | meeting | iep | disciplinary
-    
+
     // Vector embedding for semantic search
     embedding: vector('embedding', { dimensions: 1536 }), // OpenAI text-embedding-3-small
-    
+
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

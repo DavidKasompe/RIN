@@ -15,6 +15,13 @@
       "when": 1771628113150,
       "tag": "0001_fuzzy_human_torch",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771860821109,
+      "tag": "0002_amused_hairball",
+      "breakpoints": true
     }
   ]
 }

@@ -18,6 +18,8 @@ import { getStudentProfileTool } from '@/mastra/tools/getStudentProfileTool';
 import { getStudentAcademicsTool } from '@/mastra/tools/getStudentAcademicsTool';
 import { getInterventionsTool } from '@/mastra/tools/getInterventionsTool';
 import { searchStudentNotesTool } from '@/mastra/tools/searchStudentNotesTool';
+import { triggerWorkflowTool } from '@/mastra/tools/triggerWorkflowTool';
+import { requestAutomationTool } from '@/mastra/tools/requestAutomationTool';
 
 // Composio integration
 import { Composio } from '@composio/core';
@@ -58,6 +60,10 @@ Workflow for student queries:
 2. Augment with getStudentAcademics and/or getInterventions if needed.
 3. Use searchStudentNotes for qualitative context ("why has attendance dropped?").
 4. Present findings using rich C1 visual components: stat cards, tables, progress bars, badges, callouts.
+
+Workflow automation (NEW):
+- If the educator asks to "start a workflow", "send alerts", or run a specific system automation, use the \`triggerWorkflow\` tool.
+- If the educator asks for a *new* smart notification or rule ("Remind me if Sarah misses tomorrow"), use the \`requestAutomation\` tool to draft a workflow.
 
 When presenting risk data:
 - Show risk score prominently in a stat card or highlight box.
@@ -179,6 +185,47 @@ const C1_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
             },
         },
     },
+    {
+        type: 'function',
+        function: {
+            name: 'triggerWorkflow',
+            description: 'Triggers a predefined workflow by name or ID. Use this when the user asks to start an automation sequence, send notifications, or run a class-wide scan.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    workflowIdOrName: { type: 'string', description: 'The ID or exact name of the workflow to run.' },
+                    triggerData: {
+                        type: 'object',
+                        description: 'Optional data to pass to the workflow trigger (e.g., studentId, riskScore).',
+                        additionalProperties: true
+                    },
+                },
+                required: ['workflowIdOrName'],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'requestAutomation',
+            description: 'Use this tool when a teacher asks for a NEW smart notification or automation in chat (e.g. "Remind me if Sarah misses class tomorrow"). It creates a draft workflow they can enable.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    name: { type: 'string', description: 'A short, descriptive name for the requested automation.' },
+                    description: { type: 'string', description: 'What the automation is supposed to do.' },
+                    triggerType: { type: 'string', description: 'The type of event that triggers this (e.g., "Student Event", "Cron Schedule")' },
+                    actionType: { type: 'string', description: 'The resulting action (e.g., "Send SMS", "Send Email", "Flag Review")' },
+                    config: {
+                        type: 'object',
+                        description: 'Initial configuration parameters derived from the chat.',
+                        additionalProperties: true
+                    },
+                },
+                required: ['name', 'description', 'triggerType', 'actionType', 'config'],
+            },
+        },
+    },
 ];
 
 // ─── Mastra Tool Executor ─────────────────────────────────────────────────────
@@ -190,6 +237,8 @@ async function executeMastraTool(name: string, args: Record<string, any>): Promi
         getStudentAcademics: getStudentAcademicsTool,
         getInterventions: getInterventionsTool,
         searchStudentNotes: searchStudentNotesTool,
+        triggerWorkflow: triggerWorkflowTool,
+        requestAutomation: requestAutomationTool,
     };
     const tool = toolMap[name];
     if (!tool?.execute) {
