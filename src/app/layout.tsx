@@ -12,14 +12,28 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "RIN — Responsible Insight Navigator",
   description:
-    "AI decisions, explained for humans. Understand student risk predictions with clear, actionable insights.",
+    "The intelligent OS for education. Combining data, predictive analytics, and AI workflows to give educators superpowers.",
   keywords: [
     "AI",
     "education",
     "student risk",
     "explainable AI",
     "decision transparency",
+    "education OS",
+    "predictive analytics",
   ],
+  openGraph: {
+    title: "RIN — Responsible Insight Navigator",
+    description: "The intelligent OS for education. Combining data, predictive analytics, and AI workflows to give educators superpowers.",
+    images: ["/platform-preview.png"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "RIN — Responsible Insight Navigator",
+    description: "The intelligent OS for education. Combining data, predictive analytics, and AI workflows to give educators superpowers.",
+    images: ["/platform-preview.png"],
+    creator: "@withrin",
+  },
 };
 
 export default function RootLayout({
