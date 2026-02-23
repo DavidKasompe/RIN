@@ -131,9 +131,9 @@ export default function SignInPage() {
                 <label style={{ fontSize: 13, fontWeight: 600, color: '#230603', letterSpacing: '-0.2px' }}>
                   Password
                 </label>
-                <a href="#" style={{ fontSize: 13, color: '#800532', textDecoration: 'none', fontWeight: 500 }}>
+                <Link href="/forgot-password" style={{ fontSize: 13, color: '#800532', textDecoration: 'none', fontWeight: 500 }}>
                   Forgot password?
-                </a>
+                </Link>
               </div>
               <input
                 type="password"

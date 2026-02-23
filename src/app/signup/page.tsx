@@ -57,8 +57,8 @@ export default function SignUpPage() {
       return;
     }
 
-    // Success -> Redirect directly to onboarding since new users don't have a school yet
-    router.push('/onboarding');
+    // Success -> Redirect to verification notice
+    router.push('/verify-email');
   };
 
   const inputStyle = (name: string) => ({
