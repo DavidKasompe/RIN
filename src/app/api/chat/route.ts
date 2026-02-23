@@ -20,6 +20,11 @@ import { getInterventionsTool } from '@/mastra/tools/getInterventionsTool';
 import { searchStudentNotesTool } from '@/mastra/tools/searchStudentNotesTool';
 import { triggerWorkflowTool } from '@/mastra/tools/triggerWorkflowTool';
 import { requestAutomationTool } from '@/mastra/tools/requestAutomationTool';
+import { logInterventionTool } from '@/mastra/tools/logInterventionTool';
+import { getInterventionHistoryTool } from '@/mastra/tools/getInterventionHistoryTool';
+import { checkEarlyWarningsTool } from '@/mastra/tools/checkEarlyWarningsTool';
+import { runScenarioSimulationTool } from '@/mastra/tools/runScenarioSimulationTool';
+import { getCohortRiskAnalysisTool } from '@/mastra/tools/getCohortRiskAnalysisTool';
 
 // Composio integration
 import { Composio } from '@composio/core';
@@ -226,6 +231,23 @@ const C1_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
             },
         },
     },
+    // Simulations & Cohort (Prompt 07)
+    {
+        type: 'function',
+        function: {
+            name: 'runScenarioSimulation',
+            description: 'Simulate how a student\'s risk score would change if their attendance, GPA, or other factors improved or worsened. Use for "what if" questions.',
+            parameters: { type: 'object', properties: { studentQuery: { type: 'string' }, scenarios: { type: 'array', items: { type: 'object', properties: { factor: { type: 'string' }, change: { type: 'number' } }, required: ['factor', 'change'] } } }, required: ['studentQuery', 'scenarios'] }
+        }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'getCohortRiskAnalysis',
+            description: 'Analyze risk patterns across an entire grade level or cohort of students. Identifies at-risk clusters and collective trends.',
+            parameters: { type: 'object', properties: { gradeLevel: { type: 'string' }, riskThreshold: { type: 'number' } } }
+        }
+    }
 ];
 
 // ─── Mastra Tool Executor ─────────────────────────────────────────────────────
@@ -239,6 +261,11 @@ async function executeMastraTool(name: string, args: Record<string, any>): Promi
         searchStudentNotes: searchStudentNotesTool,
         triggerWorkflow: triggerWorkflowTool,
         requestAutomation: requestAutomationTool,
+        logIntervention: logInterventionTool,
+        getInterventionHistory: getInterventionHistoryTool,
+        checkEarlyWarnings: checkEarlyWarningsTool,
+        runScenarioSimulation: runScenarioSimulationTool,
+        getCohortRiskAnalysis: getCohortRiskAnalysisTool,
     };
     const tool = toolMap[name];
     if (!tool?.execute) {

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
 import { ThemeProvider, C1Component } from '@thesysai/genui-sdk';
-import { ArrowUp, AlertTriangle, Brain, FileText, TrendingUp, Loader2, Search, Paperclip, Sliders } from 'lucide-react';
+import { ArrowUp, AlertTriangle, Brain, FileText, TrendingUp, Loader2, Search, Paperclip, Sliders, X } from 'lucide-react';
 import { Icon } from '@iconify/react';
 import { useGlobalContextStore } from '@/lib/contextStore';
 
@@ -193,7 +193,7 @@ function AssistantBubble({ content, isStreaming, onAction }: {
 interface InputBoxProps {
   value: string;
   onChange: (v: string) => void;
-  onSend: (text: string) => void;
+  onSend: (text: string, apiText?: string) => void;
   isLoading: boolean;
   hasMessages?: boolean;
   connectedToolkits: any[];
@@ -201,10 +201,16 @@ interface InputBoxProps {
   onToggleToolkit: (slug: string) => void;
 }
 
+type AttachedDoc = { filename: string; text: string };
+
 function InputBox({ value, onChange, onSend, isLoading, hasMessages = false, connectedToolkits, selectedToolkits, onToggleToolkit }: InputBoxProps) {
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [attachedDoc, setAttachedDoc] = useState<AttachedDoc | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const filtered = value.trim().length > 0
     ? SUGGESTIONS.filter(s => s.toLowerCase().includes(value.toLowerCase()))
     : [];
@@ -224,7 +230,23 @@ function InputBox({ value, onChange, onSend, isLoading, hasMessages = false, con
   const handleSend = () => {
     if (!value.trim() || isLoading) return;
     setShowSuggestions(false);
-    onSend(value);
+    if (attachedDoc) {
+      // Build LLM-friendly message with document context injected
+      const displayName = attachedDoc.filename.length > 30
+        ? attachedDoc.filename.slice(0, 27) + '…'
+        : attachedDoc.filename;
+      const apiText = `[ATTACHED DOCUMENT: "${attachedDoc.filename}"]
+${attachedDoc.text}
+[END DOCUMENT]
+
+${value}`;
+      const displayText = `📎 ${displayName}\n\n${value}`;
+      setAttachedDoc(null);
+      setUploadError(null);
+      onSend(displayText, apiText);
+    } else {
+      onSend(value);
+    }
   };
 
   const handleSuggestionClick = (s: string) => {
@@ -263,7 +285,34 @@ function InputBox({ value, onChange, onSend, isLoading, hasMessages = false, con
             position: 'relative',
           }}>
 
-            {/* Textarea */}
+              {/* ─ Attachment chip ─ */}
+              {attachedDoc && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  margin: '4px 18px 0',
+                  padding: '5px 10px',
+                  backgroundColor: 'rgba(128,5,50,0.07)',
+                  borderRadius: 8,
+                  border: '1px solid rgba(128,5,50,0.15)',
+                  maxWidth: 'fit-content',
+                }}>
+                  <FileText size={13} color="#800532" />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#800532', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {attachedDoc.filename.length > 28 ? attachedDoc.filename.slice(0, 25) + '…' : attachedDoc.filename}
+                  </span>
+                  <button
+                    onClick={() => { setAttachedDoc(null); setUploadError(null); }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: '#800532', opacity: 0.6 }}
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              )}
+              {uploadError && (
+                <p style={{ margin: '4px 18px 0', fontSize: 12, color: '#C0392B' }}>{uploadError}</p>
+              )}
+
+              {/* Textarea */}
             <textarea
               ref={taRef}
               value={value}
@@ -301,67 +350,102 @@ function InputBox({ value, onChange, onSend, isLoading, hasMessages = false, con
               gap: '8px',
               borderTop: '1px solid rgba(228,221,205,0.5)',
             }}>
-              {/* Left: attach + tools */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <button
-                  className="rin-toolbar-btn"
-                  title="Attach file"
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', height: '34px', background: 'transparent', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'rgb(114,106,90)', gap: '6px', fontSize: '14px', fontFamily: "'DM Sans', system-ui, sans-serif" }}
-                >
-                  <Paperclip size={15} />
-                </button>
-
-                <div style={{ position: 'relative' }}>
+                {/* Left: hidden file input + attach button + tools */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {/* Hidden file input */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.docx,.txt"
+                    style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      // Reset so same file can be re-selected
+                      e.target.value = '';
+                      setUploading(true);
+                      setUploadError(null);
+                      setAttachedDoc(null);
+                      try {
+                        const fd = new FormData();
+                        fd.append('file', file);
+                        const res = await fetch('/api/upload-document', { method: 'POST', body: fd });
+                        const data = await res.json();
+                        if (!res.ok) {
+                          setUploadError(data.error ?? 'Could not read this file. Try a different format.');
+                        } else {
+                          setAttachedDoc({ filename: data.filename, text: data.text });
+                        }
+                      } catch {
+                        setUploadError('Upload failed. Please try again.');
+                      } finally {
+                        setUploading(false);
+                      }
+                    }}
+                  />
                   <button
                     className="rin-toolbar-btn"
-                    onClick={() => setToolsOpen(o => !o)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 10px', height: '34px',
-                      background: toolsOpen ? 'rgb(243,240,236)' : 'transparent',
-                      border: 'none', borderRadius: '8px', cursor: 'pointer',
-                      color: toolsOpen ? 'rgb(26,25,25)' : 'rgb(114,106,90)',
-                      fontSize: '14px', fontWeight: 500, fontFamily: "'DM Sans', system-ui, sans-serif",
-                      transition: 'all 0.15s',
-                    }}
+                    title="Attach file (PDF, DOCX, TXT)"
+                    disabled={uploading || isLoading}
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', height: '34px', background: attachedDoc ? 'rgba(128,5,50,0.08)' : 'transparent', border: attachedDoc ? '1px solid rgba(128,5,50,0.2)' : '1px solid transparent', borderRadius: '8px', cursor: uploading || isLoading ? 'not-allowed' : 'pointer', color: attachedDoc ? '#800532' : 'rgb(114,106,90)', gap: '6px', fontSize: '14px', fontFamily: "'DM Sans', system-ui, sans-serif", opacity: uploading ? 0.5 : 1, transition: 'all 0.15s' }}
                   >
-                    <Sliders size={14} />
-                    <span>Tools</span>
+                    {uploading
+                      ? <Loader2 size={15} style={{ animation: 'rin-spin 1s linear infinite' }} />
+                      : <Paperclip size={15} />}
                   </button>
 
-                  {/* Tools dropdown */}
-                  {toolsOpen && (
-                    <div style={{
-                      position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, zIndex: 50,
-                      background: 'rgba(255,255,255,0.95)',
-                      backdropFilter: 'blur(16px)',
-                      WebkitBackdropFilter: 'blur(16px)',
-                      border: '1px solid rgba(228,221,205,0.8)',
-                      borderRadius: '12px',
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-                      padding: '6px',
-                      minWidth: '200px',
-                      animation: 'rin-dropdown-up 0.18s cubic-bezier(0.16,1,0.3,1) both',
-                    }}>
-                      {connectedToolkits.length === 0 ? (
-                        <div style={{ padding: '8px 12px', fontSize: 13, color: 'rgb(114,106,90)', textAlign: 'center' }}>No tools connected yet.<br /><a href="/dashboard/integrations" style={{ color: '#800532', fontWeight: 600 }}>Manage tools</a></div>
-                      ) : connectedToolkits.map(t => (
-                        <button key={t.slug} className="rin-tool-item" onClick={(e) => { e.stopPropagation(); onToggleToolkit(t.slug); }} style={{
-                          display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
-                          padding: '9px 12px', background: selectedToolkits.includes(t.slug) ? 'rgba(5,128,80,0.06)' : 'transparent', border: selectedToolkits.includes(t.slug) ? '1px solid rgba(5,128,80,0.15)' : '1px solid transparent',
-                          borderRadius: '8px', cursor: 'pointer', textAlign: 'left',
-                          fontSize: '14px', fontWeight: 500, color: 'rgb(26,25,25)',
-                          fontFamily: "'DM Sans', system-ui, sans-serif",
-                          transition: 'background 0.1s', marginBottom: '4px'
-                        }}>
-                          {t.icon ? <img src={t.icon} width={16} height={16} style={{ flexShrink: 0, objectFit: 'contain' }} alt={t.name} /> : <div style={{ width: 16, height: 16 }}>⚡</div>}
-                          <span style={{ flex: 1 }}>{t.name}</span>
-                          {selectedToolkits.includes(t.slug) && <Icon icon="lucide:check" width="16" color="#058050" />}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      className="rin-toolbar-btn"
+                      onClick={() => setToolsOpen(o => !o)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 10px', height: '34px',
+                        background: toolsOpen ? 'rgb(243,240,236)' : 'transparent',
+                        border: 'none', borderRadius: '8px', cursor: 'pointer',
+                        color: toolsOpen ? 'rgb(26,25,25)' : 'rgb(114,106,90)',
+                        fontSize: '14px', fontWeight: 500, fontFamily: "'DM Sans', system-ui, sans-serif",
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <Sliders size={14} />
+                      <span>Tools</span>
+                    </button>
+
+                    {/* Tools dropdown */}
+                    {toolsOpen && (
+                      <div style={{
+                        position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, zIndex: 50,
+                        background: 'rgba(255,255,255,0.95)',
+                        backdropFilter: 'blur(16px)',
+                        WebkitBackdropFilter: 'blur(16px)',
+                        border: '1px solid rgba(228,221,205,0.8)',
+                        borderRadius: '12px',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+                        padding: '6px',
+                        minWidth: '200px',
+                        animation: 'rin-dropdown-up 0.18s cubic-bezier(0.16,1,0.3,1) both',
+                      }}>
+                        {connectedToolkits.length === 0 ? (
+                          <div style={{ padding: '8px 12px', fontSize: 13, color: 'rgb(114,106,90)', textAlign: 'center' }}>No tools connected yet.<br /><a href="/dashboard/integrations" style={{ color: '#800532', fontWeight: 600 }}>Manage tools</a></div>
+                        ) : connectedToolkits.map(t => (
+                          <button key={t.slug} className="rin-tool-item" onClick={(e) => { e.stopPropagation(); onToggleToolkit(t.slug); }} style={{
+                            display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+                            padding: '9px 12px', background: selectedToolkits.includes(t.slug) ? 'rgba(5,128,80,0.06)' : 'transparent', border: selectedToolkits.includes(t.slug) ? '1px solid rgba(5,128,80,0.15)' : '1px solid transparent',
+                            borderRadius: '8px', cursor: 'pointer', textAlign: 'left',
+                            fontSize: '14px', fontWeight: 500, color: 'rgb(26,25,25)',
+                            fontFamily: "'DM Sans', system-ui, sans-serif",
+                            transition: 'background 0.1s', marginBottom: '4px'
+                          }}>
+                            {t.icon ? <img src={t.icon} width={16} height={16} style={{ flexShrink: 0, objectFit: 'contain' }} alt={t.name} /> : <div style={{ width: 16, height: 16 }}>⚡</div>}
+                            <span style={{ flex: 1 }}>{t.name}</span>
+                            {selectedToolkits.includes(t.slug) && <Icon icon="lucide:check" width="16" color="#058050" />}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
 
               {/* Right: send */}
               <button
@@ -433,6 +517,10 @@ function InputBox({ value, onChange, onSend, isLoading, hasMessages = false, con
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const currentViewContext = useGlobalContextStore((state) => state.currentViewContext);
+  const pendingPrompt = useGlobalContextStore((state) => state.pendingPrompt);
+  const setPendingPrompt = useGlobalContextStore((state) => state.setPendingPrompt);
+  
+  const hasHandledPendingPrompt = useRef(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -497,6 +585,26 @@ export default function DashboardPage() {
       setIsLoading(false);
     }
   }, [messages, isLoading, currentViewContext, selectedToolkits]);
+
+  // Process pending deep-link prompts
+  useEffect(() => {
+    if (isMounted && pendingPrompt && !isLoading && messages.length === 0 && !hasHandledPendingPrompt.current) {
+      hasHandledPendingPrompt.current = true;
+      setInput(pendingPrompt);
+      
+      const timer = setTimeout(() => {
+        // We use the direct current value from the closure/state. 
+        // If the user manually edited the input during the delay, we don't send it automatically.
+        // To safely check the latest input without a stale closure or impure setState, 
+        // we can just send it automatically since this is an intended deep link flow.
+        sendMessage(pendingPrompt);
+        setInput('');
+        setPendingPrompt(null);
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isMounted, pendingPrompt, isLoading, messages.length, setPendingPrompt, sendMessage]);
 
   const handleToggleToolkit = useCallback((slug: string) => {
     setSelectedToolkits(prev => prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug]);

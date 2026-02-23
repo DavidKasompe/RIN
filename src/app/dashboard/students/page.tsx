@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Add, Import, SearchNormal1, ArrowUp2, ArrowDown2 } from 'iconsax-reactjs';
 import RiskBadge from '@/components/dashboard/RiskBadge';
 import { ShimmerTableRow } from '@/components/shared/Shimmer';
+import { useGlobalContextStore } from '@/lib/contextStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Student = {
@@ -23,6 +24,8 @@ const RISK_LEVELS = ['All Risk Levels', 'Critical', 'At Risk', 'Moderate', 'Low'
 
 export default function StudentsPage() {
     const router = useRouter();
+    const setPendingPrompt = useGlobalContextStore(state => state.setPendingPrompt);
+    const setViewContext = useGlobalContextStore(state => state.setViewContext);
     const [students, setStudents] = useState<Student[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -181,7 +184,11 @@ export default function StudentsPage() {
                                         <td style={{ padding: '13px 16px' }}><RiskBadge category={s.lastRiskCategory ?? 'Low'} score={s.lastRiskScore ?? undefined} /></td>
                                         <td style={{ padding: '13px 16px' }}>
                                             <div style={{ display: 'flex', gap: 6 }}>
-                                                <button onClick={() => router.push(`/dashboard?studentId=${s.id}`)} style={{ padding: '5px 12px', backgroundColor: 'rgba(128,5,50,0.08)', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, color: '#800532', cursor: 'pointer', fontFamily: 'inherit' }}>Analyze</button>
+                                                <button onClick={() => {
+                                                    setPendingPrompt(`Analyze the current risk factors for ${s.name} (Grade ${s.grade}). Their attendance is ${s.attendanceRate}% and GPA is ${s.gpa}. Fetch their full profile and suggest a targeted intervention plan.`);
+                                                    setViewContext({ type: 'student_profile', studentId: s.id, studentName: s.name });
+                                                    router.push('/dashboard');
+                                                }} style={{ padding: '5px 12px', backgroundColor: 'rgba(128,5,50,0.08)', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, color: '#800532', cursor: 'pointer', fontFamily: 'inherit' }}>Analyze</button>
                                                 <button onClick={() => { setEditingStudent(s); setShowSlideOver(true); }} style={{ padding: '5px 12px', backgroundColor: 'rgba(35,6,3,0.05)', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, color: '#230603', cursor: 'pointer', fontFamily: 'inherit' }}>Edit</button>
                                                 <button onClick={() => { if (confirm(`Remove ${s.name}?`)) deleteStudent(s.id); }} style={{ padding: '5px 12px', backgroundColor: 'rgba(192,57,43,0.07)', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, color: '#C0392B', cursor: 'pointer', fontFamily: 'inherit' }}>Delete</button>
                                             </div>

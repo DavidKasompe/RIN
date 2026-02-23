@@ -7,6 +7,8 @@ import RiskBadge from '@/components/dashboard/RiskBadge';
 import ArtifactsDrawer from '@/components/dashboard/ArtifactsDrawer';
 import Link from 'next/link';
 import OverviewLoading from './loading';
+import { useGlobalContextStore } from '@/lib/contextStore';
+import { useRouter } from 'next/navigation';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ScatterChart, Scatter, ZAxis,
@@ -19,6 +21,9 @@ type Student = {
 };
 
 export default function OverviewPage() {
+  const router = useRouter();
+  const setPendingPrompt = useGlobalContextStore(state => state.setPendingPrompt);
+  const setViewContext = useGlobalContextStore(state => state.setViewContext);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -146,7 +151,16 @@ export default function OverviewPage() {
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                   <span style={{ fontSize: 12, color: 'rgba(35,6,3,0.45)' }}>Att: {s.attendanceRate}% · GPA: {s.gpa}</span>
                   <RiskBadge category={s.lastRiskCategory ?? 'Low'} score={s.lastRiskScore ?? undefined} />
-                  <Link href={`/dashboard?studentId=${s.id}`} style={{ padding: '4px 12px', backgroundColor: 'rgba(128,5,50,0.08)', borderRadius: 7, fontSize: 12, fontWeight: 600, color: '#800532', textDecoration: 'none' }}>Analyze</Link>
+                  <button 
+                    onClick={() => {
+                        setPendingPrompt(`Analyze the current risk factors for ${s.name} (Grade ${s.grade}). Their attendance is ${s.attendanceRate}% and GPA is ${s.gpa}. Fetch their full profile and suggest a targeted intervention plan.`);
+                        setViewContext({ type: 'student_profile', studentId: s.id, studentName: s.name });
+                        router.push('/dashboard');
+                    }}
+                    style={{ padding: '4px 12px', backgroundColor: 'rgba(128,5,50,0.08)', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#800532', fontFamily: 'inherit' }}
+                  >
+                    Analyze
+                  </button>
                 </div>
               </div>
             ))}
