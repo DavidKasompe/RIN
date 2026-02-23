@@ -4,6 +4,11 @@ import { getStudentProfileTool } from '../tools/getStudentProfileTool';
 import { getStudentAcademicsTool } from '../tools/getStudentAcademicsTool';
 import { getInterventionsTool } from '../tools/getInterventionsTool';
 import { searchStudentNotesTool } from '../tools/searchStudentNotesTool';
+import { logInterventionTool } from '../tools/logInterventionTool';
+import { getInterventionHistoryTool } from '../tools/getInterventionHistoryTool';
+import { checkEarlyWarningsTool } from '../tools/checkEarlyWarningsTool';
+import { runScenarioSimulationTool } from '../tools/runScenarioSimulationTool';
+import { getCohortRiskAnalysisTool } from '../tools/getCohortRiskAnalysisTool';
 
 const openai = createOpenAI({
     apiKey: process.env.OPENAI_API_KEY ?? '',
@@ -31,5 +36,10 @@ Guidelines:
         getStudentAcademicsTool,
         getInterventionsTool,
         searchStudentNotesTool,
+        logInterventionTool,
+        getInterventionHistoryTool,
+        checkEarlyWarningsTool,
+        runScenarioSimulationTool,
+        getCohortRiskAnalysisTool,
     },
 });

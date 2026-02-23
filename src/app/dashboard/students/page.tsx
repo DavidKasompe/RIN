@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Add, Import, SearchNormal1, ArrowUp2, ArrowDown2 } from 'iconsax-reactjs';
 import RiskBadge from '@/components/dashboard/RiskBadge';
 import { ShimmerTableRow } from '@/components/shared/Shimmer';
+import { useGlobalContextStore } from '@/lib/contextStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Student = {
@@ -23,6 +24,8 @@ const RISK_LEVELS = ['All Risk Levels', 'Critical', 'At Risk', 'Moderate', 'Low'
 
 export default function StudentsPage() {
     const router = useRouter();
+    const setPendingPrompt = useGlobalContextStore(state => state.setPendingPrompt);
+    const setViewContext = useGlobalContextStore(state => state.setViewContext);
     const [students, setStudents] = useState<Student[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -181,7 +184,11 @@ export default function StudentsPage() {
                                         <td style={{ padding: '13px 16px' }}><RiskBadge category={s.lastRiskCategory ?? 'Low'} score={s.lastRiskScore ?? undefined} /></td>
                                         <td style={{ padding: '13px 16px' }}>
                                             <div style={{ display: 'flex', gap: 6 }}>
-                                                <button onClick={() => router.push(`/dashboard?studentId=${s.id}`)} style={{ padding: '5px 12px', backgroundColor: 'rgba(128,5,50,0.08)', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, color: '#800532', cursor: 'pointer', fontFamily: 'inherit' }}>Analyze</button>
+                                                <button onClick={() => {
+                                                    setPendingPrompt(`Analyze the current risk factors for ${s.name} (Grade ${s.grade}). Their attendance is ${s.attendanceRate}% and GPA is ${s.gpa}. Fetch their full profile and suggest a targeted intervention plan.`);
+                                                    setViewContext({ type: 'student_profile', studentId: s.id, studentName: s.name });
+                                                    router.push('/dashboard');
+                                                }} style={{ padding: '5px 12px', backgroundColor: 'rgba(128,5,50,0.08)', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, color: '#800532', cursor: 'pointer', fontFamily: 'inherit' }}>Analyze</button>
                                                 <button onClick={() => { setEditingStudent(s); setShowSlideOver(true); }} style={{ padding: '5px 12px', backgroundColor: 'rgba(35,6,3,0.05)', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, color: '#230603', cursor: 'pointer', fontFamily: 'inherit' }}>Edit</button>
                                                 <button onClick={() => { if (confirm(`Remove ${s.name}?`)) deleteStudent(s.id); }} style={{ padding: '5px 12px', backgroundColor: 'rgba(192,57,43,0.07)', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, color: '#C0392B', cursor: 'pointer', fontFamily: 'inherit' }}>Delete</button>
                                             </div>
@@ -290,6 +297,7 @@ function StudentSlideOver({ student, onClose, onSave }: { student: Student | nul
 
 // ─── CSV Import Modal ─────────────────────────────────────────────────────────
 function CSVModal({ onClose, onImport }: { onClose: () => void; onImport: (rows: Partial<Student>[]) => Promise<void> }) {
+    const [step, setStep] = useState<'choose' | 'paste'>('choose');
     const [text, setText] = useState('');
     const [error, setError] = useState('');
     const [importing, setImporting] = useState(false);
@@ -297,16 +305,22 @@ function CSVModal({ onClose, onImport }: { onClose: () => void; onImport: (rows:
     const parse = async () => {
         try {
             const lines = text.trim().split('\n').filter(Boolean);
+            if (lines.length < 2) throw new Error('Need a header row plus at least one data row.');
             const parsed = lines.slice(1).map((line, i) => {
                 const parts = line.split(',').map(p => p.trim().replace(/^"|"$/g, ''));
-                if (parts.length < 3) throw new Error(`Row ${i + 2}: not enough columns`);
+                if (!parts[0]) throw new Error(`Row ${i + 2}: Name is required`);
                 return {
                     id: `csv-${Date.now()}-${i}`,
-                    name: parts[0] || `Student ${i + 1}`, studentId: parts[1] || `ID-${i}`, grade: parts[2] || '9',
-                    subject: parts[3] || '', attendanceRate: parseFloat(parts[4] ?? '90') || 90,
-                    gpa: parseFloat(parts[5] ?? '3.0') || 3.0, assignmentCompletion: parseFloat(parts[6] ?? '85') || 85,
-                    behaviorReferrals: parseInt(parts[7] ?? '0') || 0, lateSubmissions: parseInt(parts[8] ?? '0') || 0,
-                    notes: parts[9] ?? '', tags: [],
+                    name: parts[0],
+                    studentId: parts[1] || `ID-${Date.now()}-${i}`,
+                    grade: parts[2] || '9',
+                    gpa: parseFloat(parts[3]) || 3.0,
+                    attendanceRate: parseFloat(parts[4]) || 90,
+                    assignmentCompletion: 85,
+                    behaviorReferrals: 0,
+                    lateSubmissions: 0,
+                    notes: parts[8] || '',
+                    tags: [],
                 };
             });
             setImporting(true);
@@ -317,24 +331,59 @@ function CSVModal({ onClose, onImport }: { onClose: () => void; onImport: (rows:
     return (
         <>
             <div onClick={onClose} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(35,6,3,0.25)', zIndex: 200 }} />
-            <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 560, backgroundColor: '#FAF3EC', zIndex: 201, borderRadius: 16, boxShadow: '0 20px 60px rgba(35,6,3,0.2)', fontFamily: 'Inter, system-ui, sans-serif' }}>
+            <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 520, backgroundColor: '#FAF3EC', zIndex: 201, borderRadius: 16, boxShadow: '0 20px 60px rgba(35,6,3,0.2)', fontFamily: 'Inter, system-ui, sans-serif' }}>
                 <div style={{ padding: '24px 28px', borderBottom: '1px solid rgba(35,6,3,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#230603', letterSpacing: '-0.5px' }}>Import CSV</h2>
+                    <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#230603', letterSpacing: '-0.5px' }}>Import Students</h2>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'rgba(35,6,3,0.4)' }}>×</button>
                 </div>
-                <div style={{ padding: '20px 28px' }}>
-                    <p style={{ fontSize: 13, color: 'rgba(35,6,3,0.55)', margin: '0 0 8px' }}>Columns: Name, Student ID, Grade, Subject, Attendance%, GPA, Assignment%, Referrals, Late Submissions, Notes</p>
-                    <div style={{ backgroundColor: 'rgba(35,6,3,0.04)', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: 'rgba(35,6,3,0.5)', fontFamily: 'monospace', marginBottom: 12 }}>Marcus Thompson,ST-001,10,English,72,2.1,61,2,7,Attendance concerns</div>
-                    <textarea value={text} onChange={e => { setText(e.target.value); setError(''); }} rows={8} placeholder="Paste CSV content here (including header row)..."
-                        style={{ width: '100%', padding: '12px', borderRadius: 9, border: '1px solid rgba(35,6,3,0.12)', fontSize: 13, fontFamily: 'monospace', resize: 'vertical' as const, outline: 'none', backgroundColor: 'white', color: '#230603', boxSizing: 'border-box' as const }} />
-                    {error && <p style={{ margin: '6px 0 0', fontSize: 13, color: '#C0392B' }}>{error}</p>}
-                    <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-                        <button onClick={onClose} style={{ flex: 1, padding: '11px', backgroundColor: 'white', border: '1px solid rgba(35,6,3,0.12)', borderRadius: 10, fontSize: 14, fontWeight: 600, color: '#230603', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-                        <button onClick={parse} disabled={importing} style={{ flex: 1, padding: '11px', backgroundColor: '#800532', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, color: 'white', cursor: importing ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: importing ? 0.7 : 1 }}>
-                            {importing ? 'Importing...' : 'Import Students'}
-                        </button>
+
+                {step === 'choose' ? (
+                    <div style={{ padding: '28px' }}>
+                        <p style={{ fontSize: 14, color: 'rgba(35,6,3,0.6)', margin: '0 0 20px', lineHeight: 1.5 }}>
+                            Use our CSV template to quickly add students. Only <strong>Name</strong>, <strong>Student ID</strong>, and <strong>Grade</strong> are required — all other fields are optional.
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            <a
+                                href="/templates/students.csv"
+                                download="rin-students-template.csv"
+                                style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                    padding: '14px', backgroundColor: '#800532', color: 'white',
+                                    borderRadius: 10, fontSize: 14, fontWeight: 600, textDecoration: 'none',
+                                    transition: 'opacity 0.15s',
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+                                onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                            >
+                                ↓ Download Template (.csv)
+                            </a>
+                            <button
+                                onClick={() => setStep('paste')}
+                                style={{
+                                    padding: '14px', backgroundColor: 'white', color: '#230603',
+                                    border: '1px solid rgba(35,6,3,0.12)', borderRadius: 10,
+                                    fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                                }}
+                            >
+                                I already have my CSV ready
+                            </button>
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div style={{ padding: '20px 28px' }}>
+                        <p style={{ fontSize: 12, color: 'rgba(35,6,3,0.45)', margin: '0 0 4px' }}>Required: Name, Student ID, Grade · Optional: GPA, Attendance%, Parent Name, Email, Phone, Notes</p>
+                        <div style={{ backgroundColor: 'rgba(35,6,3,0.04)', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: 'rgba(35,6,3,0.5)', fontFamily: 'monospace', marginBottom: 12 }}>Sarah Jenkins,STU-001,11,1.8,72,Robert Jenkins,r.jenkins@example.com,,Frequent absences</div>
+                        <textarea value={text} onChange={e => { setText(e.target.value); setError(''); }} rows={8} placeholder="Paste CSV content here (including header row)..."
+                            style={{ width: '100%', padding: '12px', borderRadius: 9, border: '1px solid rgba(35,6,3,0.12)', fontSize: 13, fontFamily: 'monospace', resize: 'vertical' as const, outline: 'none', backgroundColor: 'white', color: '#230603', boxSizing: 'border-box' as const }} />
+                        {error && <p style={{ margin: '6px 0 0', fontSize: 13, color: '#C0392B' }}>{error}</p>}
+                        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                            <button onClick={() => setStep('choose')} style={{ flex: 1, padding: '11px', backgroundColor: 'white', border: '1px solid rgba(35,6,3,0.12)', borderRadius: 10, fontSize: 14, fontWeight: 600, color: '#230603', cursor: 'pointer', fontFamily: 'inherit' }}>Back</button>
+                            <button onClick={parse} disabled={importing || !text.trim()} style={{ flex: 1, padding: '11px', backgroundColor: '#800532', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, color: 'white', cursor: importing ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: importing || !text.trim() ? 0.6 : 1 }}>
+                                {importing ? 'Importing...' : 'Import Students'}
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );

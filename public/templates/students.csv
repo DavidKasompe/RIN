@@ -1,0 +1,11 @@
+name,student_id,grade,gpa,attendance_rate,parent_name,parent_email,parent_phone,notes
+Sarah Jenkins,STU-001,11,1.8,72,Robert Jenkins,r.jenkins@example.com,555-0101,Frequent absences
+Jordan Smith,STU-002,11,2.5,84,Alice Smith,a.smith@example.com,,
+Susan Thomas,STU-003,11,3.27,94,,,,
+Sarah Johnson,STU-004,9,3.77,97,Mary Johnson,mary.johnson@example.com,555-4053,
+William Moore,STU-005,9,3.37,96,,,,
+Karen Moore,STU-006,10,3.17,99,John Moore,john.moore@example.com,,
+James Taylor,STU-007,12,1.28,79,Elizabeth Taylor,elizabeth.taylor@example.com,555-2153,Attendance concerns
+Robert Rodriguez,STU-008,9,3.55,99,,,,
+Susan Jackson,STU-009,11,2.45,85,Robert Jackson,robert.jackson@example.com,,
+Mary Wilson,STU-010,11,3.58,96,,,,

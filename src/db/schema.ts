@@ -197,13 +197,33 @@ export const studentNotes = pgTable('student_notes', {
 
     // The qualitative content (e.g. counselor notes, IEP summary)
     content: text('content').notNull(),
-    type: text('type').notNull().default('general'), // general | meeting | iep | disciplinary
+    type: text('type').notNull().default('general'), // general | meeting | iep | disciplinary | document
+
+    // Tags and visibility for case notes
+    tags: jsonb('tags').$type<string[]>().default([]),
+    visibility: text('visibility').notNull().default('private'), // 'private' | 'team'
+
+    // Source document reference (for document-chunk notes)
+    sourceDocId: text('source_doc_id'),
 
     // Vector embedding for semantic search
     embedding: vector('embedding', { dimensions: 1536 }), // OpenAI text-embedding-3-small
 
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// ─── Student Documents (uploaded transcripts, IEPs, records) ─────────────────
+export const studentDocuments = pgTable('student_documents', {
+    id: text('id').primaryKey(),
+    studentId: text('student_id').notNull().references(() => students.id, { onDelete: 'cascade' }),
+    uploadedBy: text('uploaded_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    filename: text('filename').notNull(),        // original filename displayed in UI
+    storageKey: text('storage_key').notNull(),   // path in Supabase Storage bucket
+    publicUrl: text('public_url').notNull(),
+    type: text('type').notNull(),               // 'pdf' | 'docx' | 'txt'
+    sizeBytes: integer('size_bytes').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
 // ─── Artifacts (AI-generated reports & slides) ───────────────────────────────
@@ -217,3 +237,33 @@ export const artifacts = pgTable('artifacts', {
 
     createdAt: timestamp('created_at').notNull().defaultNow(),
 });
+
+// ─── Interventions ────────────────────────────────────────────────────────────
+export const interventions = pgTable("interventions", {
+  id: text("id").primaryKey(),
+  studentId: text("student_id")
+    .notNull()
+    .references(() => students.id, { onDelete: "cascade" }),
+  counselorId: text("counselor_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // 'meeting' | 'phone_call' | 'email' | 'referral' | 'mentoring'
+  notes: text("notes"),
+  outcome: text("outcome"), // 'positive' | 'neutral' | 'escalated' | 'pending'
+  followUpDate: timestamp("follow_up_date"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// ─── Early Warnings ───────────────────────────────────────────────────────────
+export const earlyWarnings = pgTable("early_warnings", {
+  id: text("id").primaryKey(),
+  studentId: text("student_id")
+    .notNull()
+    .references(() => students.id, { onDelete: "cascade" }),
+  triggeredBy: text("triggered_by").notNull(), // 'risk_score' | 'attendance' | 'gpa' | 'behavior'
+  threshold: real("threshold").notNull(), // the value that triggered the alert
+  message: text("message").notNull(),
+  resolved: boolean("resolved").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+

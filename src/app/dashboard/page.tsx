@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
 import { ThemeProvider, C1Component } from '@thesysai/genui-sdk';
-import { ArrowUp, AlertTriangle, Brain, FileText, TrendingUp, Loader2, Search, Paperclip, Sliders } from 'lucide-react';
+import { ArrowUp, AlertTriangle, Brain, FileText, TrendingUp, Loader2, Search, Paperclip, Sliders, X } from 'lucide-react';
 import { Icon } from '@iconify/react';
 import { useGlobalContextStore } from '@/lib/contextStore';
 
@@ -193,7 +193,7 @@ function AssistantBubble({ content, isStreaming, onAction }: {
 interface InputBoxProps {
   value: string;
   onChange: (v: string) => void;
-  onSend: (text: string) => void;
+  onSend: (text: string, apiText?: string) => void;
   isLoading: boolean;
   hasMessages?: boolean;
   connectedToolkits: any[];
@@ -201,30 +201,113 @@ interface InputBoxProps {
   onToggleToolkit: (slug: string) => void;
 }
 
+type AttachedDoc = { filename: string; text: string };
+
 function InputBox({ value, onChange, onSend, isLoading, hasMessages = false, connectedToolkits, selectedToolkits, onToggleToolkit }: InputBoxProps) {
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [attachedDoc, setAttachedDoc] = useState<AttachedDoc | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  // Mention autocomplete state
+  const [students, setStudents] = useState<{ id: string; name: string }[]>([]);
+  const [mentionState, setMentionState] = useState<{ active: boolean; query: string; startIndex: number; selectedIndex: number } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/students').then(r => r.json()).then(data => setStudents(data)).catch(() => { });
+  }, []);
+
   const filtered = value.trim().length > 0
     ? SUGGESTIONS.filter(s => s.toLowerCase().includes(value.toLowerCase()))
     : [];
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange(e.target.value);
+    const val = e.target.value;
+    onChange(val);
     const ta = e.target;
     ta.style.height = 'auto';
     ta.style.height = Math.min(ta.scrollHeight, 200) + 'px';
-    setShowSuggestions(!hasMessages && e.target.value.trim().length > 0);
+
+    const cursor = ta.selectionStart;
+    const textBeforeCursor = val.slice(0, cursor);
+    const lastAtMatch = /(?:^|\s)@([^\s]*)$/.exec(textBeforeCursor);
+
+    if (lastAtMatch) {
+      setMentionState({
+        active: true,
+        query: lastAtMatch[1],
+        startIndex: textBeforeCursor.lastIndexOf('@'),
+        selectedIndex: 0,
+      });
+      setShowSuggestions(false);
+    } else {
+      setMentionState(null);
+      setShowSuggestions(!hasMessages && val.trim().length > 0);
+    }
+  };
+
+  const handleMentionSelect = (name: string) => {
+    if (!mentionState) return;
+    const before = value.slice(0, mentionState.startIndex);
+    const after = value.slice(mentionState.startIndex + mentionState.query.length + 1);
+    const newValue = `${before}@${name} ${after}`;
+    onChange(newValue);
+    setMentionState(null);
+    setTimeout(() => taRef.current?.focus(), 0);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+    if (mentionState?.active) {
+      const filteredStudents = students.filter(s => s.name.toLowerCase().includes(mentionState.query.toLowerCase()));
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionState({ ...mentionState, selectedIndex: Math.min(mentionState.selectedIndex + 1, filteredStudents.length - 1) });
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionState({ ...mentionState, selectedIndex: Math.max(mentionState.selectedIndex - 1, 0) });
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        if (filteredStudents[mentionState.selectedIndex]) {
+          handleMentionSelect(filteredStudents[mentionState.selectedIndex].name);
+        }
+        return;
+      }
+      if (e.key === 'Escape') {
+        setMentionState(null);
+        return;
+      }
+    }
+
+    if (e.key === 'Enter' && !e.shiftKey && !mentionState?.active) { e.preventDefault(); handleSend(); }
   };
 
   const handleSend = () => {
     if (!value.trim() || isLoading) return;
     setShowSuggestions(false);
-    onSend(value);
+    if (attachedDoc) {
+      // Build LLM-friendly message with document context injected
+      const displayName = attachedDoc.filename.length > 30
+        ? attachedDoc.filename.slice(0, 27) + '…'
+        : attachedDoc.filename;
+      const apiText = `[ATTACHED DOCUMENT: "${attachedDoc.filename}"]
+${attachedDoc.text}
+[END DOCUMENT]
+
+${value}`;
+      const displayText = `📎 ${displayName}\n\n${value}`;
+      setAttachedDoc(null);
+      setUploadError(null);
+      onSend(displayText, apiText);
+    } else {
+      onSend(value);
+    }
   };
 
   const handleSuggestionClick = (s: string) => {
@@ -262,6 +345,81 @@ function InputBox({ value, onChange, onSend, isLoading, hasMessages = false, con
             overflow: 'visible',
             position: 'relative',
           }}>
+
+            {/* ─ Mention Popover ─ */}
+            {mentionState?.active && (
+              <div style={{
+                position: 'absolute',
+                bottom: 'calc(100% + 8px)',
+                left: '20px',
+                background: 'rgba(255,255,255,0.95)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: '12px',
+                border: '1px solid rgba(228,221,205,0.8)',
+                boxShadow: '0 8px 30px rgba(114,106,90,0.15)',
+                width: '280px',
+                maxHeight: '200px',
+                overflowY: 'auto',
+                zIndex: 100,
+                padding: '6px',
+                fontFamily: "'DM Sans', system-ui, sans-serif",
+              }}>
+                {students.filter(s => s.name.toLowerCase().includes(mentionState.query.toLowerCase())).length === 0 ? (
+                  <div style={{ padding: '8px 12px', fontSize: '13px', color: 'rgba(114,106,90,0.8)' }}>No students found</div>
+                ) : (
+                  students.filter(s => s.name.toLowerCase().includes(mentionState.query.toLowerCase())).map((student, i) => (
+                    <div
+                      key={student.id}
+                      onClick={() => handleMentionSelect(student.name)}
+                      style={{
+                        padding: '8px 12px',
+                        fontSize: '14px',
+                        color: 'rgb(26,25,25)',
+                        cursor: 'pointer',
+                        borderRadius: '6px',
+                        background: i === mentionState.selectedIndex ? 'rgba(128,5,50,0.08)' : 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                      onMouseEnter={() => setMentionState({ ...mentionState, selectedIndex: i })}
+                    >
+                      <div style={{ width: 24, height: 24, borderRadius: '50%', backgroundColor: 'rgba(128,5,50,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#800532' }}>
+                        {student.name.charAt(0)}
+                      </div>
+                      {student.name}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* ─ Attachment chip ─ */}
+            {attachedDoc && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                margin: '4px 18px 0',
+                padding: '5px 10px',
+                backgroundColor: 'rgba(128,5,50,0.07)',
+                borderRadius: 8,
+                border: '1px solid rgba(128,5,50,0.15)',
+                maxWidth: 'fit-content',
+              }}>
+                <FileText size={13} color="#800532" />
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#800532', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {attachedDoc.filename.length > 28 ? attachedDoc.filename.slice(0, 25) + '…' : attachedDoc.filename}
+                </span>
+                <button
+                  onClick={() => { setAttachedDoc(null); setUploadError(null); }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: '#800532', opacity: 0.6 }}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            )}
+            {uploadError && (
+              <p style={{ margin: '4px 18px 0', fontSize: 12, color: '#C0392B' }}>{uploadError}</p>
+            )}
 
             {/* Textarea */}
             <textarea
@@ -341,14 +499,49 @@ function InputBox({ value, onChange, onSend, isLoading, hasMessages = false, con
               gap: '8px',
               borderTop: '1px solid rgba(228,221,205,0.5)',
             }}>
-              {/* Left: attach + tools */}
+              {/* Left: hidden file input + attach button + tools */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.docx,.txt"
+                  style={{ display: 'none' }}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    // Reset so same file can be re-selected
+                    e.target.value = '';
+                    setUploading(true);
+                    setUploadError(null);
+                    setAttachedDoc(null);
+                    try {
+                      const fd = new FormData();
+                      fd.append('file', file);
+                      const res = await fetch('/api/upload-document', { method: 'POST', body: fd });
+                      const data = await res.json();
+                      if (!res.ok) {
+                        setUploadError(data.error ?? 'Could not read this file. Try a different format.');
+                      } else {
+                        setAttachedDoc({ filename: data.filename, text: data.text });
+                      }
+                    } catch {
+                      setUploadError('Upload failed. Please try again.');
+                    } finally {
+                      setUploading(false);
+                    }
+                  }}
+                />
                 <button
                   className="rin-toolbar-btn"
-                  title="Attach file"
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', height: '34px', background: 'transparent', border: 'none', borderRadius: '8px', cursor: 'pointer', color: 'rgb(114,106,90)', gap: '6px', fontSize: '14px', fontFamily: "'DM Sans', system-ui, sans-serif" }}
+                  title="Attach file (PDF, DOCX, TXT)"
+                  disabled={uploading || isLoading}
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', height: '34px', background: attachedDoc ? 'rgba(128,5,50,0.08)' : 'transparent', border: attachedDoc ? '1px solid rgba(128,5,50,0.2)' : '1px solid transparent', borderRadius: '8px', cursor: uploading || isLoading ? 'not-allowed' : 'pointer', color: attachedDoc ? '#800532' : 'rgb(114,106,90)', gap: '6px', fontSize: '14px', fontFamily: "'DM Sans', system-ui, sans-serif", opacity: uploading ? 0.5 : 1, transition: 'all 0.15s' }}
                 >
-                  <Paperclip size={15} />
+                  {uploading
+                    ? <Loader2 size={15} style={{ animation: 'rin-spin 1s linear infinite' }} />
+                    : <Paperclip size={15} />}
                 </button>
 
                 <div style={{ position: 'relative' }}>
@@ -473,6 +666,10 @@ function InputBox({ value, onChange, onSend, isLoading, hasMessages = false, con
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const currentViewContext = useGlobalContextStore((state) => state.currentViewContext);
+  const pendingPrompt = useGlobalContextStore((state) => state.pendingPrompt);
+  const setPendingPrompt = useGlobalContextStore((state) => state.setPendingPrompt);
+
+  const hasHandledPendingPrompt = useRef(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -537,6 +734,26 @@ export default function DashboardPage() {
       setIsLoading(false);
     }
   }, [messages, isLoading, currentViewContext, selectedToolkits]);
+
+  // Process pending deep-link prompts
+  useEffect(() => {
+    if (isMounted && pendingPrompt && !isLoading && messages.length === 0 && !hasHandledPendingPrompt.current) {
+      hasHandledPendingPrompt.current = true;
+      setInput(pendingPrompt);
+
+      const timer = setTimeout(() => {
+        // We use the direct current value from the closure/state. 
+        // If the user manually edited the input during the delay, we don't send it automatically.
+        // To safely check the latest input without a stale closure or impure setState, 
+        // we can just send it automatically since this is an intended deep link flow.
+        sendMessage(pendingPrompt);
+        setInput('');
+        setPendingPrompt(null);
+      }, 300);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isMounted, pendingPrompt, isLoading, messages.length, setPendingPrompt, sendMessage]);
 
   const handleToggleToolkit = useCallback((slug: string) => {
     setSelectedToolkits(prev => prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug]);

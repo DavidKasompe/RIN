@@ -23,6 +23,13 @@ import { requestAutomationTool } from '@/mastra/tools/requestAutomationTool';
 // Custom notification integrations (Twilio SMS, Resend Email)
 import { sendSMSStep } from '@/lib/integrations/twilio';
 import { sendEmailStep } from '@/lib/integrations/resend';
+import { logInterventionTool } from '@/mastra/tools/logInterventionTool';
+import { getInterventionHistoryTool } from '@/mastra/tools/getInterventionHistoryTool';
+import { checkEarlyWarningsTool } from '@/mastra/tools/checkEarlyWarningsTool';
+import { runScenarioSimulationTool } from '@/mastra/tools/runScenarioSimulationTool';
+import { getCohortRiskAnalysisTool } from '@/mastra/tools/getCohortRiskAnalysisTool';
+import { addStudentTool } from '@/mastra/tools/addStudentTool';
+import { updateStudentGradesTool } from '@/mastra/tools/updateStudentGradesTool';
 
 // Composio integration
 import { Composio } from '@composio/core';
@@ -61,6 +68,8 @@ Core tools (always available):
 - edit_artifact: Edit a previously generated report or presentation.
 - triggerWorkflow: Start a predefined automation workflow.
 - requestAutomation: Create a new smart notification or rule from chat.
+- addStudent: Add a new student to the roster. Use when teacher says "add", "enroll", or "register" a student.
+- updateStudentGrades: Update a student's GPA, attendance, assignments, etc. Use when teacher reports new grades or academic changes.
 
 Student query workflow:
 1. If a specific student is mentioned, call getStudentProfile first.
@@ -342,6 +351,14 @@ const C1_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
                 required: ['to', 'message'],
             },
         },
+    // Simulations & Cohort
+    {
+        type: 'function',
+        function: {
+            name: 'runScenarioSimulation',
+            description: 'Simulate how a student\'s risk score would change if their attendance, GPA, or other factors improved or worsened. Use for "what if" questions.',
+            parameters: { type: 'object', properties: { studentQuery: { type: 'string' }, scenarios: { type: 'array', items: { type: 'object', properties: { factor: { type: 'string' }, change: { type: 'number' } }, required: ['factor', 'change'] } } }, required: ['studentQuery', 'scenarios'] }
+        }
     },
     {
         type: 'function',
@@ -356,6 +373,56 @@ const C1_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
                     body: { type: 'string', description: 'The HTML or plain text email body.' },
                 },
                 required: ['to', 'subject', 'body'],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'getCohortRiskAnalysis',
+            description: 'Analyze risk patterns across an entire grade level or cohort of students. Identifies at-risk clusters and collective trends.',
+            parameters: { type: 'object', properties: { gradeLevel: { type: 'string' }, riskThreshold: { type: 'number' } } }
+        }
+    },
+    // Data entry tools
+    {
+        type: 'function',
+        function: {
+            name: 'addStudent',
+            description: 'Add a new student to the school roster. Use when the teacher says "add a student", "enroll", or "register a new student".',
+            parameters: {
+                type: 'object',
+                properties: {
+                    name: { type: 'string', description: 'Full name of the student' },
+                    grade: { type: 'string', description: 'Grade level (e.g. "9", "10", "11", "12")' },
+                    studentId: { type: 'string', description: 'Student ID (auto-generated if omitted)' },
+                    gpa: { type: 'number', description: 'Current GPA (0-4.0)' },
+                    attendanceRate: { type: 'number', description: 'Attendance rate percentage (0-100)' },
+                    parentName: { type: 'string', description: 'Parent or guardian name' },
+                    parentEmail: { type: 'string', description: 'Parent email address' },
+                    notes: { type: 'string', description: 'Any initial notes about the student' },
+                },
+                required: ['name', 'grade'],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'updateStudentGrades',
+            description: 'Update a student\'s academic records — GPA, attendance rate, assignment completion, late submissions, or behavior referrals. Use when teachers report new grades, updated attendance, or academic changes.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    studentQuery: { type: 'string', description: 'Student name or ID to search for' },
+                    gpa: { type: 'number', description: 'New GPA value (0-4.0)' },
+                    attendanceRate: { type: 'number', description: 'New attendance rate percentage (0-100)' },
+                    assignmentCompletion: { type: 'number', description: 'New assignment completion percentage (0-100)' },
+                    lateSubmissions: { type: 'number', description: 'Updated late submission count' },
+                    behaviorReferrals: { type: 'number', description: 'Updated behavior referral count' },
+                    notes: { type: 'string', description: 'Additional notes to append' },
+                },
+                required: ['studentQuery'],
             },
         },
     },
@@ -395,6 +462,13 @@ async function executeMastraTool(name: string, args: Record<string, any>): Promi
         searchStudentNotes: searchStudentNotesTool,
         triggerWorkflow: triggerWorkflowTool,
         requestAutomation: requestAutomationTool,
+        logIntervention: logInterventionTool,
+        getInterventionHistory: getInterventionHistoryTool,
+        checkEarlyWarnings: checkEarlyWarningsTool,
+        runScenarioSimulation: runScenarioSimulationTool,
+        getCohortRiskAnalysis: getCohortRiskAnalysisTool,
+        addStudent: addStudentTool,
+        updateStudentGrades: updateStudentGradesTool,
     };
     const tool = toolMap[name];
     if (!tool?.execute) {

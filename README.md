@@ -219,9 +219,11 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## 🔮 Future Roadmap
 
+- [ ] **"RIN Learn" Add-On** — Student-facing AI tutoring environment with AI chat, audio-to-notes, visual concept breakdowns, flashcard/quiz generation, and teacher visibility into learning gaps
 - [ ] Fine-tuned model for higher accuracy dropout prediction
 - [ ] Batch analysis via CSV upload
 - [ ] PDF report generation with charts
+- [ ] Early warning alert dashboard with triggered notifications
 - [ ] Multi-language support for international schools
 - [ ] Mobile app (React Native) for field educators
 - [ ] District-wide analytics with cohort heatmaps
