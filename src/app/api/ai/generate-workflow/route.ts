@@ -15,7 +15,7 @@ const WorkflowNodeSchema = z.object({
     data: z.object({
         label: z.string(),
         description: z.string().optional(),
-        config: z.record(z.any()).optional(),
+        config: z.record(z.string(), z.any()).optional(),
         type: z.string().optional(),
     }),
 });

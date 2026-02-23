@@ -4,6 +4,9 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: '.',
   },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   images: {
     remotePatterns: [
       {

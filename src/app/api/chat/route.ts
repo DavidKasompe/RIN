@@ -351,6 +351,7 @@ const C1_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
                 required: ['to', 'message'],
             },
         },
+    },
     // Simulations & Cohort
     {
         type: 'function',
