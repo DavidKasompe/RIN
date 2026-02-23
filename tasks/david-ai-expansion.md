@@ -30,3 +30,18 @@ The Overview page highlights "flagged" or "at-risk" students. Currently, clickin
 - When an educator clicks "Analyze" for a specific student, they should be immediately redirected to the Chat interface.
 - Crucially, the chat input should be **pre-populated** with the correct, contextualized prompt (e.g., "Analyze the recent drop in attendance for Sarah Jenkins and suggest an intervention plan"), and the chat should ideally **start automatically** or be ready for immediate submission.
 - Ensure this seamless pattern (UI Action -> Context-Aware Chat Prompt) is applied consistently, not just on the Overview page, but also from the main Students list where applicable.
+
+
+---- CREATE TOOLS FOR THE AGENT THAT WILL BE ABLE TO EXTRACT Transcripts and basically achieving a living and breathing platform, review integrations.md in the troot to understand this moore:
+
+- **Early warning triggers** — automated alerts when a student crosses a risk threshold
+
+- **Intervention tracking** — log what action was taken, by whom, on what date, and was it effective
+- **Student result trend viewer** — see a student's grade trajectory over time (not just snapshots)
+- **Notes & annotations** — per-student case notes with timestamps, update student view to include way to add complains, comments, keyword on behavior etc
+
+- **Scenario simulation** — "What if this student improves attendance by 10%?" risk trajectory
+- **Predictive cohort analysis** — which whole class groups are trending toward risk?
+
+
+--- so create breakdown tasks for me so that this makes a bit more sense we break it down and finish this
