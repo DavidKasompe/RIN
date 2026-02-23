@@ -61,13 +61,14 @@ const SUGGESTIONS = [
 async function streamC1(
   messages: { role: string; content: string }[],
   currentViewContext: any,
+  activeToolkits: string[],
   onChunk: (acc: string) => void,
   signal: AbortSignal,
 ) {
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, currentViewContext }),
+    body: JSON.stringify({ messages, currentViewContext, activeToolkits }),
     signal,
   });
   if (!res.ok || !res.body) throw new Error(`Stream failed: ${res.status}`);
@@ -195,9 +196,12 @@ interface InputBoxProps {
   onSend: (text: string) => void;
   isLoading: boolean;
   hasMessages?: boolean;
+  connectedToolkits: any[];
+  selectedToolkits: string[];
+  onToggleToolkit: (slug: string) => void;
 }
 
-function InputBox({ value, onChange, onSend, isLoading, hasMessages = false }: InputBoxProps) {
+function InputBox({ value, onChange, onSend, isLoading, hasMessages = false, connectedToolkits, selectedToolkits, onToggleToolkit }: InputBoxProps) {
   const taRef = useRef<HTMLTextAreaElement>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
@@ -338,23 +342,20 @@ function InputBox({ value, onChange, onSend, isLoading, hasMessages = false }: I
                       minWidth: '200px',
                       animation: 'rin-dropdown-up 0.18s cubic-bezier(0.16,1,0.3,1) both',
                     }}>
-                      {[
-                        { icon: () => <img src="https://www.gstatic.com/classroom/logo_square_rounded.svg" width={14} height={14} alt="Classroom" />, label: 'Google Classroom' },
-                        { icon: () => <div style={{ width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><img src="https://www.powerschool.com/wp-content/themes/powerschool/img/logo-cyan-p.svg" width={14} height={14} alt="PowerSchool" /></div>, label: 'PowerSchool SIS' },
-                        { icon: () => <Icon icon="devicon:moodle" width="14" height="14" />, label: 'Moodle LMS' },
-                        { icon: () => <Icon icon="logos:google-calendar" width="14" height="14" />, label: 'Google Calendar' },
-                        { icon: () => <Icon icon="ri:notion-fill" width="14" height="14" color="#230603" />, label: 'Notion Base' },
-                      ].map(t => (
-                        <button key={t.label} className="rin-tool-item" onClick={() => setToolsOpen(false)} style={{
+                      {connectedToolkits.length === 0 ? (
+                        <div style={{ padding: '8px 12px', fontSize: 13, color: 'rgb(114,106,90)', textAlign: 'center' }}>No tools connected yet.<br /><a href="/dashboard/integrations" style={{ color: '#800532', fontWeight: 600 }}>Manage tools</a></div>
+                      ) : connectedToolkits.map(t => (
+                        <button key={t.slug} className="rin-tool-item" onClick={(e) => { e.stopPropagation(); onToggleToolkit(t.slug); }} style={{
                           display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
-                          padding: '9px 12px', background: 'transparent', border: 'none',
+                          padding: '9px 12px', background: selectedToolkits.includes(t.slug) ? 'rgba(5,128,80,0.06)' : 'transparent', border: selectedToolkits.includes(t.slug) ? '1px solid rgba(5,128,80,0.15)' : '1px solid transparent',
                           borderRadius: '8px', cursor: 'pointer', textAlign: 'left',
                           fontSize: '14px', fontWeight: 500, color: 'rgb(26,25,25)',
                           fontFamily: "'DM Sans', system-ui, sans-serif",
-                          transition: 'background 0.1s',
+                          transition: 'background 0.1s', marginBottom: '4px'
                         }}>
-                          <t.icon />
-                          <span>{t.label}</span>
+                          {t.icon ? <img src={t.icon} width={16} height={16} style={{ flexShrink: 0, objectFit: 'contain' }} alt={t.name} /> : <div style={{ width: 16, height: 16 }}>⚡</div>}
+                          <span style={{ flex: 1 }}>{t.name}</span>
+                          {selectedToolkits.includes(t.slug) && <Icon icon="lucide:check" width="16" color="#058050" />}
                         </button>
                       ))}
                     </div>
@@ -436,12 +437,29 @@ export default function DashboardPage() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [connectedToolkits, setConnectedToolkits] = useState<any[]>([]);
+  const [selectedToolkits, setSelectedToolkits] = useState<string[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Mount guard — ThemeProvider generates a random UID per render causing SSR/client mismatch.
-  // Rendering it only after mount eliminates the hydration error.
-  useEffect(() => { setIsMounted(true); }, []);
+  // Mount guard & fetch toolkits
+  useEffect(() => {
+    setIsMounted(true);
+
+    async function fetchToolkits() {
+      try {
+        const res = await fetch('/api/integrations');
+        const data = await res.json();
+        if (data.available && data.items) {
+          const connected = data.items.filter((t: any) => t.isConnected);
+          setConnectedToolkits(connected);
+        }
+      } catch (err) {
+        console.error("Failed to load toolkits", err);
+      }
+    }
+    fetchToolkits();
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -467,7 +485,7 @@ export default function DashboardPage() {
     const history = [...messages, { role: 'user' as const, content: prompt }];
 
     try {
-      await streamC1(history, currentViewContext, (acc) => {
+      await streamC1(history, currentViewContext, selectedToolkits, (acc) => {
         setMessages(prev => prev.map(m => m.id === asstId ? { ...m, content: acc } : m));
       }, controller.signal);
     } catch (err: unknown) {
@@ -478,7 +496,11 @@ export default function DashboardPage() {
       setMessages(prev => prev.map(m => m.id === asstId ? { ...m, isStreaming: false } : m));
       setIsLoading(false);
     }
-  }, [messages, isLoading]);
+  }, [messages, isLoading, currentViewContext, selectedToolkits]);
+
+  const handleToggleToolkit = useCallback((slug: string) => {
+    setSelectedToolkits(prev => prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug]);
+  }, []);
 
   // Handle interactive C1 UI actions (button clicks, form submits inside C1 components).
   // humanFriendlyMessage is shown in the chat bubble; llmFriendlyMessage is sent to the LLM.
@@ -539,86 +561,86 @@ export default function DashboardPage() {
         .rin-chat-scroll::-webkit-scrollbar-thumb { background: rgba(114,106,90,0.25); border-radius: 9999px; }
       `}</style>
 
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'rgb(250,250,249)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'rgb(250,250,249)' }}>
 
-        {/* ── Messages or Welcome ── */}
-        <div className="rin-chat-scroll" style={{ flex: 1, overflowY: 'auto', padding: isEmpty ? '0' : '24px 24px 0' }}>
-          {isEmpty ? (
-            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 16px 80px' }}>
+            {/* ── Messages or Welcome ── */}
+            <div className="rin-chat-scroll" style={{ flex: 1, overflowY: 'auto', padding: isEmpty ? '0' : '24px 24px 0' }}>
+              {isEmpty ? (
+                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 16px 80px' }}>
 
-              {/* Heading */}
-              <h1 style={{
-                fontSize: '36px', fontWeight: 400, color: 'rgb(26,25,25)',
-                fontFamily: "'DM Sans', system-ui, sans-serif",
-                margin: '0 0 28px', textAlign: 'center', lineHeight: '1.1',
-              }}>
-                What can I help with today?
-              </h1>
+                  {/* Heading */}
+                  <h1 style={{
+                    fontSize: '36px', fontWeight: 400, color: 'rgb(26,25,25)',
+                    fontFamily: "'DM Sans', system-ui, sans-serif",
+                    margin: '0 0 28px', textAlign: 'center', lineHeight: '1.1',
+                  }}>
+                    What can I help with today?
+                  </h1>
 
-              {/* Input */}
-              <div style={{ maxWidth: '760px', width: '100%', position: 'relative' }}>
-                <InputBox value={input} onChange={setInput} onSend={sendMessage} isLoading={isLoading} hasMessages={false} />
-              </div>
+                  {/* Input */}
+                  <div style={{ maxWidth: '760px', width: '100%', position: 'relative' }}>
+                    <InputBox value={input} onChange={setInput} onSend={sendMessage} isLoading={isLoading} hasMessages={false} connectedToolkits={connectedToolkits} selectedToolkits={selectedToolkits} onToggleToolkit={handleToggleToolkit} />
+                  </div>
 
-              {/* Chips */}
-              <div style={{
-                maxWidth: '760px', width: '100%', marginTop: '14px',
-                display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px',
-              }}>
-                {STARTERS.map(s => (
-                  <button
-                    key={s.label}
-                    className="rin-chip"
-                    onClick={() => sendMessage(s.prompt)}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
-                      padding: '9px 12px',
-                      background: 'rgba(255,255,255,0.8)',
-                      backdropFilter: 'blur(8px)',
-                      WebkitBackdropFilter: 'blur(8px)',
-                      border: '0.666px solid rgb(228,221,205)',
-                      borderRadius: '16px',
-                      cursor: 'pointer',
-                      fontSize: '13px', fontWeight: 500, color: 'rgb(26,25,25)',
-                      fontFamily: "'DM Sans', system-ui, sans-serif",
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-                    }}
-                  >
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <s.icon size={14} color={s.color} />
-                    </span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '16px' }}>
-              {messages.map(m =>
-                m.role === 'user'
-                  ? <UserBubble key={m.id} content={m.content} />
-                  : <AssistantBubble key={m.id} content={m.content} isStreaming={m.isStreaming ?? false} onAction={handleC1Action} />
+                  {/* Chips */}
+                  <div style={{
+                    maxWidth: '760px', width: '100%', marginTop: '14px',
+                    display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px',
+                  }}>
+                    {STARTERS.map(s => (
+                      <button
+                        key={s.label}
+                        className="rin-chip"
+                        onClick={() => sendMessage(s.prompt)}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+                          padding: '9px 12px',
+                          background: 'rgba(255,255,255,0.8)',
+                          backdropFilter: 'blur(8px)',
+                          WebkitBackdropFilter: 'blur(8px)',
+                          border: '0.666px solid rgb(228,221,205)',
+                          borderRadius: '16px',
+                          cursor: 'pointer',
+                          fontSize: '13px', fontWeight: 500, color: 'rgb(26,25,25)',
+                          fontFamily: "'DM Sans', system-ui, sans-serif",
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                          boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                        }}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <s.icon size={14} color={s.color} />
+                        </span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '16px' }}>
+                  {messages.map(m =>
+                    m.role === 'user'
+                      ? <UserBubble key={m.id} content={m.content} />
+                      : <AssistantBubble key={m.id} content={m.content} isStreaming={m.isStreaming ?? false} onAction={handleC1Action} />
+                  )}
+                  <div ref={bottomRef} />
+                </div>
               )}
-              <div ref={bottomRef} />
             </div>
-          )}
-        </div>
 
-        {/* ── Sticky footer input (active thread) ── */}
-        {!isEmpty && (
-          <div style={{ padding: '10px 24px 20px', background: 'rgb(250,250,249)' }}>
-            <div style={{ maxWidth: '800px', margin: '0 auto', position: 'relative' }}>
-              <InputBox value={input} onChange={setInput} onSend={sendMessage} isLoading={isLoading} hasMessages={true} />
-              <p style={{ fontSize: '11px', color: 'rgb(160,155,145)', textAlign: 'center', marginTop: '8px' }}>
-                RIN supports your judgment — always verify with school records.
-              </p>
-            </div>
+            {/* ── Sticky footer input (active thread) ── */}
+            {!isEmpty && (
+              <div style={{ padding: '10px 24px 20px', background: 'rgb(250,250,249)' }}>
+                <div style={{ maxWidth: '800px', margin: '0 auto', position: 'relative' }}>
+                  <InputBox value={input} onChange={setInput} onSend={sendMessage} isLoading={isLoading} hasMessages={true} connectedToolkits={connectedToolkits} selectedToolkits={selectedToolkits} onToggleToolkit={handleToggleToolkit} />
+                  <p style={{ fontSize: '11px', color: 'rgb(160,155,145)', textAlign: 'center', marginTop: '8px' }}>
+                    RIN supports your judgment — always verify with school records.
+                  </p>
+                </div>
+              </div>
+            )}
+
           </div>
-        )}
-
-      </div>
-    </ThemeProvider>
+        </ThemeProvider>
       )}
     </>
   );

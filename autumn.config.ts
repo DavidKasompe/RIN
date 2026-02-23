@@ -38,12 +38,6 @@ export const schoolTeam = plan({
         amount: 249,
         interval: 'month',
     },
-    features: [
-        planFeature({ feature_id: aiRiskAnalysis.id }),
-        planFeature({ feature_id: interventionLogging.id }),
-        planFeature({ feature_id: calendarSync.id }),
-        planFeature({ feature_id: emailAlerts.id }),
-    ],
 });
 
 export default {

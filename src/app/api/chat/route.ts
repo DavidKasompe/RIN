@@ -19,6 +19,11 @@ import { getStudentAcademicsTool } from '@/mastra/tools/getStudentAcademicsTool'
 import { getInterventionsTool } from '@/mastra/tools/getInterventionsTool';
 import { searchStudentNotesTool } from '@/mastra/tools/searchStudentNotesTool';
 
+// Composio integration
+import { Composio } from '@composio/core';
+import { OpenAIAgentsProvider } from '@composio/openai-agents';
+import { auth } from '@/lib/auth';
+
 export const runtime = 'nodejs';
 
 // ─── OpenAI Clients ───────────────────────────────────────────────────────────
@@ -58,6 +63,13 @@ When presenting risk data:
 - Show risk score prominently in a stat card or highlight box.
 - Use a table for contributing risk factors with impact percentages.
 - Use prioritized lists (High/Medium/Low) for intervention steps.
+
+When scheduling meetings or adding events to the calendar:
+- ALWAYS use the \`GOOGLECALENDAR_CREATE_EVENT\` tool if available to sync directly with the user's Google Calendar.
+- If asked for a "Meet link" or "video call", ensure you use \`GOOGLECALENDAR_CREATE_EVENT\` (it automatically generates a Google Meet link by default).
+- If inviting parents, first check the \`getStudentProfile\` tool for the parent's email address and include it in the \`attendees\` array.
+- If the parent's email is NOT found in the profile, explicitly ask the user for the email address first before creating the event.
+- After successfully creating the event, clearly announce: "Event created with [Student Name]'s parent" and confirm that a Meet link was included.
 
 Always be empathetic, evidence-based, and action-oriented. Never stigmatize students.`;
 
@@ -248,13 +260,73 @@ export async function POST(req: NextRequest) {
         const body = await req.json() as {
             messages: OpenAI.Chat.ChatCompletionMessageParam[];
             currentViewContext?: any;
+            activeToolkits?: string[];
         };
 
-        const { messages, currentViewContext } = body;
+        const { messages, currentViewContext, activeToolkits } = body;
 
         if (!messages?.length) {
             return NextResponse.json({ error: 'Messages are required' }, { status: 400 });
         }
+
+        // Get the active user session for Composio account connection
+        // Only run Composio stuff if there's a valid COMPOSIO_API_KEY
+        let composioTools: OpenAI.Chat.ChatCompletionTool[] = [];
+        let composioSession: any = null;
+        let composioInstance: any = null;
+
+        if (process.env.COMPOSIO_API_KEY) {
+            try {
+                // Determine user ID
+                const authSession = await auth.api.getSession({ headers: req.headers });
+                const userId = authSession?.user?.id || 'anonymous_educator';
+
+                let schoolId = 'no_school';
+                if (userId !== 'anonymous_educator') {
+                    try {
+                        const { db } = await import('@/db');
+                        const { users } = await import('@/db/schema');
+                        const { eq } = await import('drizzle-orm');
+                        if (db) {
+                            const currentUserReq = await db.select().from(users).where(eq(users.id, userId));
+                            if (currentUserReq.length > 0 && currentUserReq[0].schoolId) {
+                                schoolId = currentUserReq[0].schoolId;
+                            }
+                        }
+                    } catch (e) { /* silent fail */ }
+                }
+
+                // Initialize Composio natively
+                composioInstance = new Composio({ apiKey: process.env.COMPOSIO_API_KEY });
+
+                // We create a session for both the user and the school
+                composioSession = await composioInstance.create(userId);
+                const composioSchoolSession = await composioInstance.create(schoolId);
+
+                // Fetch ALL connected tools from both entities
+                const userTools = await composioSession.tools();
+                const schoolTools = await composioSchoolSession.tools();
+
+                // Merge tools, giving preference to school tools if overlap (though usually distinct)
+                const mergedTools = [...schoolTools, ...userTools];
+
+                // Hack to fix type mismatches between Composio's output and OpenAI SDK types
+                composioTools = mergedTools.map((t: any) => ({
+                    type: 'function',
+                    function: {
+                        name: t.function.name,
+                        description: t.function.description || 'Composio toolkit action',
+                        parameters: t.function.parameters || t.inputSchema || { type: 'object', properties: {} },
+                    }
+                })) as OpenAI.Chat.ChatCompletionTool[];
+
+            } catch (err) {
+                console.error('Failed to initialize Composio tools:', err);
+            }
+        }
+
+        // Merge the Mastra C1 tools with the dynamic Composio tools
+        const ALL_TOOLS = [...C1_TOOLS, ...composioTools];
 
         const c1Response = makeC1Response();
 
@@ -269,7 +341,11 @@ export async function POST(req: NextRequest) {
             const contextId = currentViewContext.studentId
                 ? `Student ID: ${currentViewContext.studentId}`
                 : JSON.stringify(currentViewContext);
-            systemContent = `ACTIVE CONTEXT: Educator is viewing ${contextId}. Automatically fetch this student's data if relevant.\n\n${BASE_SYSTEM_PROMPT}`;
+            systemContent = `ACTIVE CONTEXT: Educator is viewing ${contextId}. Automatically fetch this student's data if relevant.\n\n${systemContent}`;
+        }
+
+        if (activeToolkits && activeToolkits.length > 0) {
+            systemContent += `\n\n[USER ACTION]: The user has explicitly selected the following external tools for this task: ${activeToolkits.join(', ')}. YOU MUST PRIORITIZE USING THESE TOOLS IF APPLICABLE.`;
         }
 
         // Build message history — start with system prompt
@@ -294,8 +370,8 @@ export async function POST(req: NextRequest) {
                     const response = await chatClient.chat.completions.create({
                         model: 'c1/anthropic/claude-sonnet-4/v-20251230',
                         messages: conversationMessages,
-                        tools: C1_TOOLS,
-                        tool_choice: 'auto',
+                        tools: ALL_TOOLS.length > 0 ? ALL_TOOLS : undefined,
+                        tool_choice: ALL_TOOLS.length > 0 ? 'auto' : undefined,
                         stream: false,
                     });
 
@@ -308,8 +384,8 @@ export async function POST(req: NextRequest) {
                         const finalStream = await chatClient.chat.completions.create({
                             model: 'c1/anthropic/claude-sonnet-4/v-20251230',
                             messages: conversationMessages,
-                            tools: C1_TOOLS,
-                            tool_choice: 'auto',
+                            tools: ALL_TOOLS.length > 0 ? ALL_TOOLS : undefined,
+                            tool_choice: ALL_TOOLS.length > 0 ? 'auto' : undefined,
                             stream: true,
                         });
 
@@ -347,6 +423,57 @@ export async function POST(req: NextRequest) {
                         if (ARTIFACT_TOOLS.has(toolName)) {
                             // Artifact tools stream content directly into c1Response
                             toolResult = await executeArtifactTool(toolName, toolArgs, c1Response);
+                        } else if (toolName.startsWith('COMPOSIO_') || toolName.startsWith('composio_')) {
+                            // Let the Composio SDK execute its own tools directly using the session ID + raw arguments
+                            try {
+                                if (!composioSession) {
+                                    throw new Error("Composio session not initialized");
+                                }
+
+                                c1Response.writeThinkItem({
+                                    title: `Running remote action…`,
+                                    description: `Connecting to ${toolName.split('_')[1] || 'external service'} to perform the task.`,
+                                });
+
+                                // Some native agents require passing the exact original tool call ID instead
+                                // But since we are directly calling the API, we can use the composio provider directly
+                                // Try to find the actual tool in composio.tools() from either session
+                                const userToolsObj = await composioSession.tools();
+
+                                // Need to also import schoolId logic again here to execute school tools
+                                let toolSchoolId = 'no_school';
+                                try {
+                                    const { db } = await import('@/db');
+                                    const { users } = await import('@/db/schema');
+                                    const { eq } = await import('drizzle-orm');
+                                    const authSession = await auth.api.getSession({ headers: req.headers });
+                                    const uid = authSession?.user?.id || 'anonymous_educator';
+                                    if (db && uid !== 'anonymous_educator') {
+                                        const currentUserReq = await db.select().from(users).where(eq(users.id, uid));
+                                        if (currentUserReq.length > 0 && currentUserReq[0].schoolId) {
+                                            toolSchoolId = currentUserReq[0].schoolId;
+                                        }
+                                    }
+                                } catch (e) { }
+
+                                const schoolSessionObj = await composioInstance.create(toolSchoolId);
+                                const schoolToolsObj = await schoolSessionObj.tools();
+
+                                const targetTool = userToolsObj.find((t: any) => t.function.name === toolName)
+                                    || schoolToolsObj.find((t: any) => t.function.name === toolName);
+
+                                if (!targetTool) {
+                                    throw new Error(`Composio tool ${toolName} not found in user or school session`);
+                                }
+
+                                // The tool execution interface in native Composio objects
+                                const result = await targetTool.execute(toolArgs);
+                                toolResult = typeof result === 'string' ? result : JSON.stringify(result);
+
+                            } catch (error) {
+                                console.error(`[Composio Tool Execution Error - ${toolName}]:`, error);
+                                toolResult = JSON.stringify({ error: `Composio tool execution failed: ${String(error)}` });
+                            }
                         } else {
                             // Mastra tools execute DB queries and return JSON
                             toolResult = await executeMastraTool(toolName, toolArgs);

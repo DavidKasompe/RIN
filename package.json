@@ -11,6 +11,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^3.0.30",
     "@composio/core": "^0.6.3",
+    "@composio/openai-agents": "^0.6.3",
     "@crayonai/react-core": "^0.7.7",
     "@crayonai/react-ui": "^0.9.16",
     "@crayonai/stream": "^0.6.4",
@@ -40,6 +41,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/bcrypt": "^6.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

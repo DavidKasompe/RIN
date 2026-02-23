@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, Message2, Chart2 } from 'iconsax-reactjs';
 import RiskBadge from '@/components/dashboard/RiskBadge';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import StudentDetailLoading from './loading';
 
 type Student = {
     id: string; name: string; studentId: string; grade: string; subject?: string | null;
@@ -37,7 +38,7 @@ export default function StudentProfilePage() {
             .then(data => { setStudent(data); setLoading(false); });
     }, [id]);
 
-    if (loading) return <div style={{ textAlign: 'center' as const, padding: 64, fontFamily: 'Inter, system-ui, sans-serif', color: 'rgba(35,6,3,0.4)' }}>Loading...</div>;
+    if (loading) return <StudentDetailLoading />;
     if (!student) return <div style={{ textAlign: 'center' as const, padding: 64, fontFamily: 'Inter, system-ui, sans-serif', color: 'rgba(35,6,3,0.4)' }}>Student not found. <Link href="/dashboard/students" style={{ color: '#800532' }}>Back to roster</Link></div>;
 
     const trend = generateTrend(student.lastRiskScore ?? 40);

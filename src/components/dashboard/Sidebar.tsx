@@ -12,6 +12,7 @@ import {
     Calendar,
     Diagram,
     Setting2,
+    Category,
     Add,
     LogoutCurve,
     Check,
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
     { href: '/dashboard/overview', label: 'Overview', Icon: Chart2 },
     { href: '/dashboard/calendar', label: 'Calendar', Icon: Calendar },
     { href: '/dashboard/workflows', label: 'Workflows', Icon: Diagram },
+    { href: '/dashboard/integrations', label: 'Integrations', Icon: Category },
     { href: '/dashboard/settings', label: 'Settings', Icon: Setting2 },
 ];
 

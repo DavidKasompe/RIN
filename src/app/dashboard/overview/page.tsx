@@ -6,6 +6,7 @@ import StatCard from '@/components/dashboard/StatCard';
 import RiskBadge from '@/components/dashboard/RiskBadge';
 import ArtifactsDrawer from '@/components/dashboard/ArtifactsDrawer';
 import Link from 'next/link';
+import OverviewLoading from './loading';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ScatterChart, Scatter, ZAxis,
@@ -27,7 +28,7 @@ export default function OverviewPage() {
       .then(data => { setStudents(data); setLoading(false); });
   }, []);
 
-  if (loading) return <div style={{ textAlign: 'center' as const, padding: 64, fontFamily: 'Inter, system-ui, sans-serif', color: 'rgba(35,6,3,0.4)' }}>Loading analytics...</div>;
+  if (loading) return <OverviewLoading />;
 
   if (students.length === 0) return (
     <div style={{ textAlign: 'center' as const, padding: 64, fontFamily: 'Inter, system-ui, sans-serif', color: 'rgba(35,6,3,0.4)' }}>

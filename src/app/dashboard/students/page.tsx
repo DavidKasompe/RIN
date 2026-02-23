@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Add, Import, SearchNormal1, ArrowUp2, ArrowDown2 } from 'iconsax-reactjs';
 import RiskBadge from '@/components/dashboard/RiskBadge';
+import { ShimmerTableRow } from '@/components/shared/Shimmer';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Student = {
@@ -135,7 +136,9 @@ export default function StudentsPage() {
             {/* Table */}
             <div style={{ backgroundColor: 'white', borderRadius: 14, border: '1px solid rgba(35,6,3,0.07)', overflow: 'hidden' }}>
                 {loading ? (
-                    <div style={{ padding: '48px 32px', textAlign: 'center' as const, color: 'rgba(35,6,3,0.35)', fontSize: 14 }}>Loading students...</div>
+                    <div style={{ padding: '0 24px', paddingBottom: 8 }}>
+                        {Array.from({ length: 12 }).map((_, i) => <ShimmerTableRow key={i} cols={6} />)}
+                    </div>
                 ) : filtered.length === 0 ? (
                     <div style={{ padding: '64px 32px', textAlign: 'center' as const }}>
                         <div style={{ fontSize: 16, fontWeight: 600, color: '#230603', marginBottom: 8 }}>No students found</div>
