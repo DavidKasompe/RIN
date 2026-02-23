@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSession } from '@/lib/auth-client';
 
 /* ─────────────────────────────────────────────────────────────────────────
    Pexels CDN video URLs (direct .mp4 from their files CDN — no auth needed)
@@ -73,6 +74,7 @@ function RinWordmark({ size = 28, color = '#800532' }: { size?: number; color?: 
 export default function LandingPage() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const { data: session, isPending } = useSession();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 80);
@@ -150,20 +152,32 @@ export default function LandingPage() {
 
           {/* CTAs — white text on hero, branded once scrolled */}
           <div style={{ flex: '1 1 0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 14 }}>
-            <Link
-              href="/signin"
-              className="hidden md:block"
-              style={{ textDecoration: 'none', fontSize: 14, fontWeight: 500, color: scrolled ? '#800532' : 'rgba(255,255,255,0.9)', transition: 'color 0.35s ease' }}
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/signup"
-              className="hidden md:block"
-              style={{ textDecoration: 'none', fontSize: 14, fontWeight: 600, color: 'white', backgroundColor: '#800532', borderRadius: 9999, padding: '10px 20px', letterSpacing: '-0.4px' }}
-            >
-              Start Free
-            </Link>
+            {!isPending && session ? (
+              <Link
+                href="/dashboard"
+                className="hidden md:block"
+                style={{ textDecoration: 'none', fontSize: 14, fontWeight: 600, color: 'white', backgroundColor: '#800532', borderRadius: 9999, padding: '10px 20px', letterSpacing: '-0.4px' }}
+              >
+                Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/signin"
+                  className="hidden md:block"
+                  style={{ textDecoration: 'none', fontSize: 14, fontWeight: 500, color: scrolled ? '#800532' : 'rgba(255,255,255,0.9)', transition: 'color 0.35s ease' }}
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/signup"
+                  className="hidden md:block"
+                  style={{ textDecoration: 'none', fontSize: 14, fontWeight: 600, color: 'white', backgroundColor: '#800532', borderRadius: 9999, padding: '10px 20px', letterSpacing: '-0.4px' }}
+                >
+                  Start Free
+                </Link>
+              </>
+            )}
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
               className="md:hidden"
@@ -182,10 +196,17 @@ export default function LandingPage() {
         {/* Mobile menu — solid cream drop-down */}
         {mobileOpen && (
           <div style={{ maxWidth: 1120, margin: '8px auto 0', borderRadius: 16, backgroundColor: 'rgba(250,243,236,0.96)', backdropFilter: 'blur(16px)', padding: '12px 24px 18px' }}>
-            {[{ label: 'Features', href: '#features' }, { label: 'How it Works', href: '#how-it-works' }, { label: 'Educators', href: '#testimonials' }, { label: 'Sign In', href: '/signin' }].map(item => (
+            {[{ label: 'Features', href: '#features' }, { label: 'How it Works', href: '#how-it-works' }, { label: 'Educators', href: '#testimonials' }].map(item => (
               <a key={item.label} href={item.href} onClick={() => setMobileOpen(false)} style={{ display: 'block', textDecoration: 'none', color: '#230603', fontSize: 14, fontWeight: 500, padding: '10px 0', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>{item.label}</a>
             ))}
-            <Link href="/signup" onClick={() => setMobileOpen(false)} style={{ display: 'block', textDecoration: 'none', textAlign: 'center', marginTop: 10, padding: '12px', borderRadius: 9999, backgroundColor: '#800532', color: 'white', fontSize: 14, fontWeight: 600 }}>Start Free</Link>
+            {!isPending && session ? (
+              <Link href="/dashboard" onClick={() => setMobileOpen(false)} style={{ display: 'block', textDecoration: 'none', textAlign: 'center', marginTop: 10, padding: '12px', borderRadius: 9999, backgroundColor: '#800532', color: 'white', fontSize: 14, fontWeight: 600 }}>Dashboard</Link>
+            ) : (
+              <>
+                <Link href="/signin" onClick={() => setMobileOpen(false)} style={{ display: 'block', textDecoration: 'none', color: '#230603', fontSize: 14, fontWeight: 500, padding: '10px 0', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>Sign In</Link>
+                <Link href="/signup" onClick={() => setMobileOpen(false)} style={{ display: 'block', textDecoration: 'none', textAlign: 'center', marginTop: 10, padding: '12px', borderRadius: 9999, backgroundColor: '#800532', color: 'white', fontSize: 14, fontWeight: 600 }}>Start Free</Link>
+              </>
+            )}
           </div>
         )}
       </header>
@@ -226,9 +247,15 @@ export default function LandingPage() {
             RIN gives K–12 teachers and counselors a real-time early warning dashboard. Track grades, attendance, and behavior — and get AI-powered risk alerts before any student falls through the cracks.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/signup" style={{ textDecoration: 'none', fontWeight: 600, borderRadius: 9999, backgroundColor: 'white', color: '#800532', padding: '15px 32px', fontSize: 14, letterSpacing: '-0.5px' }}>
-              Get Started Free
-            </Link>
+            {!isPending && session ? (
+              <Link href="/dashboard" style={{ textDecoration: 'none', fontWeight: 600, borderRadius: 9999, backgroundColor: 'white', color: '#800532', padding: '15px 32px', fontSize: 14, letterSpacing: '-0.5px' }}>
+                Go to Dashboard
+              </Link>
+            ) : (
+              <Link href="/signup" style={{ textDecoration: 'none', fontWeight: 600, borderRadius: 9999, backgroundColor: 'white', color: '#800532', padding: '15px 32px', fontSize: 14, letterSpacing: '-0.5px' }}>
+                Get Started Free
+              </Link>
+            )}
             <a href="#features" style={{ textDecoration: 'none', fontWeight: 500, borderRadius: 9999, backgroundColor: 'rgba(255,255,255,0.12)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '15px 32px', fontSize: 14, letterSpacing: '-0.5px', backdropFilter: 'blur(4px)' }}>
               See How It Works
             </a>
@@ -484,9 +511,15 @@ export default function LandingPage() {
           <h2 style={{ color: '#230603', fontSize: 'clamp(44px, 7vw, 64px)', fontWeight: 500, lineHeight: 1.12, letterSpacing: '-3px', margin: 0 }}>
             Less guessing,<br />more helping.
           </h2>
-          <Link href="/signup" style={{ textDecoration: 'none', fontWeight: 600, borderRadius: 9999, backgroundColor: '#800532', color: 'white', padding: '15px 32px', fontSize: 14, letterSpacing: '-0.5px' }}>
-            Start Free Trial
-          </Link>
+          {!isPending && session ? (
+            <Link href="/dashboard" style={{ textDecoration: 'none', fontWeight: 600, borderRadius: 9999, backgroundColor: '#800532', color: 'white', padding: '15px 32px', fontSize: 14, letterSpacing: '-0.5px' }}>
+              Go to Dashboard
+            </Link>
+          ) : (
+            <Link href="/signup" style={{ textDecoration: 'none', fontWeight: 600, borderRadius: 9999, backgroundColor: '#800532', color: 'white', padding: '15px 32px', fontSize: 14, letterSpacing: '-0.5px' }}>
+              Start Free Trial
+            </Link>
+          )}
         </div>
       </section>
 

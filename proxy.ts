@@ -1,25 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const protectedRoutes = ['/dashboard', '/onboarding', '/settings'];
+const authRoutes = ['/signin', '/signup'];
+
 export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
-    // Protect all /dashboard routes — check for better-auth session cookie
-    if (pathname.startsWith('/dashboard')) {
-        const sessionToken =
-            request.cookies.get('better-auth.session_token') ??
-            request.cookies.get('__Secure-better-auth.session_token');
+    const sessionToken =
+        request.cookies.get('better-auth.session_token') ??
+        request.cookies.get('__Secure-better-auth.session_token');
 
-        if (!sessionToken?.value) {
-            const url = request.nextUrl.clone();
-            url.pathname = '/signin';
-            url.searchParams.set('from', pathname);
-            return NextResponse.redirect(url);
-        }
+    const isAuthenticated = !!sessionToken?.value;
+
+    const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+    const isAuthRoute = authRoutes.some(route => pathname.startsWith(route));
+
+    if (isAuthenticated && isAuthRoute) {
+        const url = request.nextUrl.clone();
+        url.pathname = '/dashboard';
+        return NextResponse.redirect(url);
+    }
+
+    if (!isAuthenticated && isProtectedRoute) {
+        const url = request.nextUrl.clone();
+        url.pathname = '/';
+        return NextResponse.redirect(url);
     }
 
     return NextResponse.next();
 }
 
 export const config = {
-    matcher: ['/dashboard/:path*'],
+    matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$).*)'],
 };
+
