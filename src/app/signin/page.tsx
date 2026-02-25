@@ -41,7 +41,13 @@ export default function SignInPage() {
     setIsLoading(false);
 
     if (error) {
-      setErrors({ email: error.message || 'Invalid email or password' });
+      const errMsg = error.message?.toLowerCase() || '';
+      if (errMsg.includes('not verified') || error.code === 'email_not_verified') {
+        authClient.sendVerificationEmail({ email: formData.email }).catch(() => {});
+        setErrors({ email: 'Email not verified. A new verification link has been sent to your inbox.' });
+      } else {
+        setErrors({ email: error.message || 'Invalid email or password' });
+      }
       return;
     }
 

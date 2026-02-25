@@ -53,7 +53,13 @@ export default function SignUpPage() {
     setIsLoading(false);
 
     if (error) {
-      setErrors({ email: error.message || 'Signup failed' });
+      const errMsg = error.message?.toLowerCase() || '';
+      if (errMsg.includes('exist') || error.code === 'user_already_exists') {
+        authClient.sendVerificationEmail({ email: formData.email }).catch(() => {});
+        setErrors({ email: 'Account already exists. If not verified, a new verification link was sent to your inbox.' });
+      } else {
+        setErrors({ email: error.message || 'Signup failed' });
+      }
       return;
     }
 

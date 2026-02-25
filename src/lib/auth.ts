@@ -25,11 +25,18 @@ export const auth = betterAuth({
         async sendVerificationEmail({ user, url }: { user: any; url: string }) {
             const { Resend } = await import('resend');
             const resend = new Resend(process.env.RESEND_API_KEY!);
+            
+            // Extract token from Better Auth's backend URL and point to our custom frontend page
+            const parsed = new URL(url);
+            const token = parsed.searchParams.get('token');
+            const baseUrl = process.env.NEXT_PUBLIC_BETTER_AUTH_URL || process.env.BETTER_AUTH_URL || 'http://localhost:3000';
+            const verifyUrl = `${baseUrl}/verify-email?token=${token}`;
+
             const { data, error } = await resend.emails.send({
                 from: 'RIN Security <noreply@withrin.co>',
                 to: user.email,
                 subject: 'Verify your email address - RIN',
-                html: `<p>Hi ${user.name},</p><p>Please verify your email by clicking the link below:</p><p><a href="${url}">Verify Email</a></p><p>If you did not request this, please ignore this email.</p>`,
+                html: `<p>Hi ${user.name},</p><p>Please verify your email by clicking the link below:</p><p><a href="${verifyUrl}">Verify Email</a></p><p>If you did not request this, please ignore this email.</p>`,
             });
 
             if (error) {
