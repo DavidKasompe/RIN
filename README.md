@@ -99,7 +99,7 @@ All powered by a dynamic AI agent that connects to the tools schools already use
 
 ---
 
-## 🔌 Integrations (11 tools)
+## 🔌 Integrations (11+ tools)
 
 RIN connects to the tools schools already use via **Composio managed auth**:
 
