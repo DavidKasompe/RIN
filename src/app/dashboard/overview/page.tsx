@@ -77,7 +77,7 @@ export default function OverviewPage() {
   return (
     <div style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
       {/* Page header */}
-      <div style={{ marginBottom: 28, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+      <div className="mb-7 flex flex-col sm:flex-row items-start justify-between gap-4">
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: '#230603', margin: 0, letterSpacing: '-0.8px' }}>Overview</h1>
           <p style={{ fontSize: 14, color: 'rgba(35,6,3,0.45)', margin: '4px 0 0' }}>Analytics across {total} students</p>
@@ -85,14 +85,14 @@ export default function OverviewPage() {
         <ArtifactsDrawer />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
         <StatCard label="Total Students" value={total} sub="in roster" IconComponent={People} />
         <StatCard label="At Risk / Critical" value={critical + atRisk} sub="need attention" IconComponent={Warning2} accentColor="#C0392B" trend={critical > 0 ? 'down' : 'flat'} trendLabel={critical > 0 ? `${critical} critical` : 'Stable'} />
         <StatCard label="Average GPA" value={avgGpa} sub="/ 4.0" IconComponent={DocumentText} accentColor="#2980B9" />
         <StatCard label="Avg Attendance" value={`${avgAttendance}%`} IconComponent={Chart2} accentColor="#27AE60" trend={avgAttendance < 80 ? 'down' : 'up'} trendLabel={avgAttendance < 80 ? 'Below 80%' : 'Healthy'} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
         <div style={{ backgroundColor: 'white', borderRadius: 14, border: '1px solid rgba(35,6,3,0.07)', padding: '24px' }}>
           <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700, color: '#230603', letterSpacing: '-0.3px' }}>Risk Distribution</h3>
           <ResponsiveContainer width="100%" height={220}>
@@ -143,14 +143,16 @@ export default function OverviewPage() {
           <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: '#230603', letterSpacing: '-0.3px' }}>Students Needing Attention ({atRiskStudents.length})</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {atRiskStudents.map(s => (
-              <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderRadius: 10, backgroundColor: 'rgba(250,243,236,0.6)', border: '1px solid rgba(35,6,3,0.05)' }}>
+              <div key={s.id} className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center p-3 sm:px-4 sm:py-3 rounded-[10px] bg-[rgba(250,243,236,0.6)] border border-[rgba(35,6,3,0.05)] gap-3 sm:gap-0">
                 <div>
                   <Link href={`/dashboard/students/${s.id}`} style={{ fontSize: 14, fontWeight: 600, color: '#230603', textDecoration: 'none' }}>{s.name}</Link>
                   <span style={{ fontSize: 12, color: 'rgba(35,6,3,0.4)', marginLeft: 10 }}>Grade {s.grade}</span>
                 </div>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, color: 'rgba(35,6,3,0.45)' }}>Att: {s.attendanceRate}% · GPA: {s.gpa}</span>
-                  <RiskBadge category={s.lastRiskCategory ?? 'Low'} score={s.lastRiskScore ?? undefined} />
+                <div className="flex flex-wrap gap-2 sm:gap-3 items-center w-full sm:w-auto mt-1 sm:mt-0">
+                  <span style={{ fontSize: 12, color: 'rgba(35,6,3,0.45)', flexShrink: 0 }}>Att: {s.attendanceRate}% · GPA: {s.gpa}</span>
+                  <div className="flex-shrink-0">
+                    <RiskBadge category={s.lastRiskCategory ?? 'Low'} score={s.lastRiskScore ?? undefined} />
+                  </div>
                   <button 
                     onClick={() => {
                         setPendingPrompt(`Analyze the current risk factors for ${s.name} (Grade ${s.grade}). Their attendance is ${s.attendanceRate}% and GPA is ${s.gpa}. Fetch their full profile and suggest a targeted intervention plan.`);
@@ -158,6 +160,7 @@ export default function OverviewPage() {
                         router.push('/dashboard');
                     }}
                     style={{ padding: '4px 12px', backgroundColor: 'rgba(128,5,50,0.08)', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#800532', fontFamily: 'inherit' }}
+                    className="ml-auto sm:ml-0"
                   >
                     Analyze
                   </button>

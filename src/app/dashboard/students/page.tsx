@@ -91,7 +91,7 @@ export default function StudentsPage() {
     return (
         <div style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-7">
                 <div>
                     <h1 style={{ fontSize: 24, fontWeight: 700, color: '#230603', margin: 0, letterSpacing: '-0.8px' }}>Students</h1>
                     <p style={{ fontSize: 14, color: 'rgba(35,6,3,0.45)', margin: '4px 0 0' }}>{students.length} students in roster</p>
@@ -107,7 +107,7 @@ export default function StudentsPage() {
             </div>
 
             {/* Quick stats */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6">
                 {[
                     { label: 'Total Students', value: students.length },
                     { label: 'At Risk / Critical', value: atRiskCount, highlight: atRiskCount > 0 },
@@ -123,9 +123,9 @@ export default function StudentsPage() {
 
             {/* Filters */}
             <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' as const }}>
-                <div style={{ position: 'relative' as const, flex: 1, minWidth: 220, maxWidth: 320 }}>
+                <div style={{ position: 'relative', flex: '1 1 100%', minWidth: 220, maxWidth: '100%' }}>
                     <SearchNormal1 size={15} color="rgba(35,6,3,0.35)" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
-                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or ID..." style={{ width: '100%', padding: '9px 12px 9px 36px', borderRadius: 10, border: '1px solid rgba(35,6,3,0.12)', fontSize: 13, fontFamily: 'inherit', backgroundColor: 'white', color: '#230603', outline: 'none', boxSizing: 'border-box' as const }} />
+                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or ID..." style={{ width: '100%', padding: '9px 12px 9px 36px', borderRadius: 10, border: '1px solid rgba(35,6,3,0.12)', fontSize: 13, fontFamily: 'inherit', backgroundColor: 'white', color: '#230603', outline: 'none', boxSizing: 'border-box' }} />
                 </div>
                 <select value={gradeFilter} onChange={e => setGradeFilter(e.target.value)} style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid rgba(35,6,3,0.12)', fontSize: 13, fontFamily: 'inherit', backgroundColor: 'white', color: '#230603', cursor: 'pointer', outline: 'none' }}>
                     {GRADES.map(g => <option key={g}>{g}</option>)}
@@ -137,7 +137,7 @@ export default function StudentsPage() {
             </div>
 
             {/* Table */}
-            <div style={{ backgroundColor: 'white', borderRadius: 14, border: '1px solid rgba(35,6,3,0.07)', overflow: 'hidden' }}>
+            <div className="bg-white rounded-[14px] border border-[rgba(35,6,3,0.07)] overflow-hidden w-full overflow-x-auto">
                 {loading ? (
                     <div style={{ padding: '0 24px', paddingBottom: 8 }}>
                         {Array.from({ length: 12 }).map((_, i) => <ShimmerTableRow key={i} cols={6} />)}

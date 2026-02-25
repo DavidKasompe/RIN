@@ -188,7 +188,7 @@ export default function StudentProfilePage() {
                 <ArrowLeft size={16} /> Back to Students
             </Link>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-7">
                 <div>
                     <h1 style={{ fontSize: 26, fontWeight: 700, color: '#230603', margin: 0, letterSpacing: '-0.8px' }}>{student.name}</h1>
                     <div style={{ display: 'flex', gap: 12, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' as const }}>
@@ -200,7 +200,7 @@ export default function StudentProfilePage() {
                         ))}
                     </div>
                 </div>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <div className="flex flex-wrap gap-2.5 items-center w-full sm:w-auto mt-2 sm:mt-0">
                     <RiskBadge category={student.lastRiskCategory ?? 'Low'} score={student.lastRiskScore ?? undefined} />
                     <button onClick={() => {
                         setPendingPrompt(`Analyze ${student.name}'s current risk profile in full detail. Their latest risk score is ${student.lastRiskScore ?? 'unknown'}. Fetch all available data and provide a comprehensive intervention recommendation.`);
@@ -214,7 +214,7 @@ export default function StudentProfilePage() {
             </div>
 
             {/* Tab Bar */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid rgba(35,6,3,0.06)' }}>
+            <div className="flex gap-2 mb-6 pb-4 border-b border-[rgba(35,6,3,0.06)] overflow-x-auto w-full">
                 <button
                     onClick={() => setActiveTab('overview')}
                     style={{
@@ -267,7 +267,7 @@ export default function StudentProfilePage() {
 
             {activeTab === 'overview' && (
                 <>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 24 }}>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
                         <Metric label="Attendance" value={`${student.attendanceRate}%`} warn={student.attendanceRate < 75} />
                         <Metric label="GPA" value={student.gpa.toFixed(1)} warn={student.gpa < 2.0} />
                         <Metric label="Assignments" value={`${student.assignmentCompletion}%`} warn={student.assignmentCompletion < 60} />
@@ -275,7 +275,7 @@ export default function StudentProfilePage() {
                         <Metric label="Late Submissions" value={String(student.lateSubmissions)} warn={student.lateSubmissions >= 8} />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5 w-full">
                         <div style={{ backgroundColor: 'white', borderRadius: 14, border: '1px solid rgba(35,6,3,0.07)', padding: '24px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                                 <Chart2 size={18} color="#800532" variant="Bulk" />
@@ -379,7 +379,7 @@ export default function StudentProfilePage() {
                     ) : resultsData ? (
                         <>
                             {/* Section B - Key Metrics Snapshot */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                 <Metric 
                                     label="Attendance" 
                                     value={`${resultsData.snapshot.attendanceRate}%`} 
@@ -406,7 +406,7 @@ export default function StudentProfilePage() {
                                 />
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>
+                            <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-5">
                                 {/* Section A - Risk History Chart */}
                                 <div style={{ backgroundColor: 'white', borderRadius: 14, border: '1px solid rgba(35,6,3,0.07)', padding: '24px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>

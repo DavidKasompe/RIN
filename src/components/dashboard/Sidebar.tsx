@@ -35,6 +35,11 @@ export default function Sidebar() {
     const { data: session } = useSession();
     const [schoolName, setSchoolName] = useState('Loading...');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+    useEffect(() => {
+        setIsMobileOpen(false);
+    }, [pathname]);
 
     useEffect(() => {
         async function fetchSchool() {
@@ -61,20 +66,41 @@ export default function Sidebar() {
     };
 
     return (
-        <nav style={{
-            width: SIDEBAR_W,
-            minWidth: SIDEBAR_W,
-            flexShrink: 0,
-            height: '100vh',
-            backgroundColor: 'rgb(245,245,244)',
-            borderRight: '0.67px solid rgb(246,240,228)',
-            display: 'flex',
-            flexDirection: 'column',
-            position: 'sticky',
-            top: 0,
-            fontFamily: "'DM Sans', 'DM Sans Fallback', system-ui, -apple-system, sans-serif",
-            zIndex: 50,
-        }}>
+        <>
+            {/* Mobile Hamburger Button */}
+            <button
+                className="md:hidden fixed top-3 left-4 z-[40] p-2 bg-[#FAF3EC]/80 backdrop-blur-md rounded-md shadow-sm border border-[rgba(35,6,3,0.1)] text-[#230603]"
+                onClick={() => setIsMobileOpen(true)}
+            >
+                <Category size={20} color="#230603" variant="Bulk" />
+            </button>
+
+            {/* Mobile Overlay */}
+            {isMobileOpen && (
+                <div 
+                    className="md:hidden fixed inset-0 bg-black/40 z-[55] backdrop-blur-sm" 
+                    onClick={() => setIsMobileOpen(false)}
+                />
+            )}
+
+            <nav 
+                className={`fixed md:sticky top-0 left-0 h-screen bg-[rgb(245,245,244)] border-r border-[rgba(35,6,3,0.06)] flex flex-col z-[60] md:z-50 transition-transform duration-300 ease-in-out ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+                style={{
+                    width: SIDEBAR_W,
+                    minWidth: SIDEBAR_W,
+                    flexShrink: 0,
+                    fontFamily: "'DM Sans', 'DM Sans Fallback', system-ui, -apple-system, sans-serif",
+                }}
+            >
+                {/* Close Button for Mobile inside Sidebar */}
+                {isMobileOpen && (
+                    <button 
+                        className="md:hidden absolute top-4 right-4 p-1.5 rounded-md bg-[rgba(35,6,3,0.05)] text-[#230603] z-[65]"
+                        onClick={() => setIsMobileOpen(false)}
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                )}
             {/* Top — Workspace Switcher */}
             <div style={{ padding: '16px 12px', paddingBottom: 12, position: 'relative' }}>
                 <button
@@ -280,5 +306,6 @@ export default function Sidebar() {
                 </div>
             </div>
         </nav>
+        </>
     );
 }

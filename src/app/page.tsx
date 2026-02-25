@@ -91,34 +91,16 @@ export default function LandingPage() {
       ════════════════════════════════════════════════════════════════ */}
       {/* ── NAVBAR — header is always transparent; only the pill has a bg ── */}
       <header
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 50,
-          background: 'transparent',
-          transition: 'padding 0.45s ease',
-          padding: scrolled ? '12px 20px' : '14px 28px',
-        }}
+        className={`fixed top-0 left-0 right-0 z-50 bg-transparent transition-all duration-500 ${
+          scrolled ? 'p-0 md:py-3 md:px-5' : 'p-3 md:py-3.5 md:px-7'
+        }`}
       >
         <div
-          style={{
-            maxWidth: scrolled ? 860 : 1120,
-            margin: '0 auto',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 40,
-            /* When scrolled, wrap whole bar in a glass pill */
-            borderRadius: scrolled ? 9999 : 0,
-            backdropFilter: scrolled ? 'blur(20px) saturate(160%)' : 'none',
-            WebkitBackdropFilter: scrolled ? 'blur(20px) saturate(160%)' : 'none',
-            backgroundColor: scrolled ? 'rgba(250,243,236,0.82)' : 'transparent',
-            boxShadow: scrolled ? '0 4px 24px rgba(128,5,50,0.1), 0 1px 4px rgba(0,0,0,0.04)' : 'none',
-            padding: scrolled ? '11px 28px' : '0',
-            transition: 'max-width 0.45s ease, border-radius 0.45s ease, backdrop-filter 0.45s ease, background-color 0.45s ease, box-shadow 0.45s ease, padding 0.45s ease',
-          }}
+          className={`mx-auto flex items-center justify-between transition-all duration-500 ${
+            scrolled
+              ? 'max-w-[860px] gap-4 md:gap-10 rounded-none md:rounded-full bg-[#FAF3EC]/90 backdrop-blur-xl shadow-sm py-3 px-5 md:px-7'
+              : 'max-w-[1120px] gap-4 md:gap-10 bg-transparent py-0 px-0'
+          }`}
         >
           {/* Logo — white on hero, burgundy once scrolled */}
           <Link href="/" style={{ textDecoration: 'none', flex: '1 1 0' }}>
@@ -248,7 +230,7 @@ export default function LandingPage() {
           <p style={{ color: 'rgba(255,255,255,0.82)', fontSize: 20, lineHeight: 1.55, margin: '0 0 36px', textShadow: '0 1px 8px rgba(0,0,0,0.3)' }}>
             RIN gives K–12 teachers and counselors a real-time early warning dashboard. Track grades, attendance, and behavior — and get AI-powered risk alerts before any student falls through the cracks.
           </p>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div className="flex flex-col sm:flex-row justify-center items-center" style={{ gap: 12 }}>
             {!isPending && session ? (
               <Link href="/dashboard" style={{ textDecoration: 'none', fontWeight: 600, borderRadius: 9999, backgroundColor: 'white', color: '#800532', padding: '15px 32px', fontSize: 14, letterSpacing: '-0.5px' }}>
                 Go to Dashboard
@@ -307,8 +289,8 @@ export default function LandingPage() {
 
           {/* Row 1 – Student Roster full-width */}
           <div style={{ marginBottom: 28 }}>
-            <div style={{ backgroundColor: '#F8E8CA', borderRadius: 21, overflow: 'hidden', display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-              <div style={{ padding: '48px 0 48px 56px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 16 }}>
+            <div className="grid grid-cols-1 md:grid-cols-2" style={{ backgroundColor: '#F8E8CA', borderRadius: 21, overflow: 'hidden' }}>
+              <div className="flex flex-col justify-end gap-4 p-8 sm:p-12 lg:p-14">
                 <span style={{ display: 'inline-block', backgroundColor: '#230603', color: 'white', fontSize: 11, fontWeight: 600, padding: '4px 12px', borderRadius: 9999, alignSelf: 'flex-start', letterSpacing: '0.04em' }}>New</span>
                 <h4 style={{ color: '#272727', fontSize: 31.5, fontWeight: 600, lineHeight: 1.2, margin: 0 }}>Student Roster</h4>
                 <p style={{ color: '#6b6b6b', fontSize: 17, lineHeight: 1.6, margin: 0 }}>Add your K–12 students manually or import a CSV. All attendance, GPA, and behavior data in one searchable, sortable table.</p>
@@ -320,17 +302,17 @@ export default function LandingPage() {
           </div>
 
           {/* Row 2 – AI Assessment + Intervention Plans */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28, marginBottom: 28 }}>
+          <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 28, marginBottom: 28 }}>
             <div style={{ backgroundColor: '#E6EAF1', borderRadius: 22, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <img src={PX.f2} alt="AI Assessment" style={{ width: '100%', height: 260, objectFit: 'cover', display: 'block' }} />
-              <div style={{ padding: '36px 44px 44px' }}>
+              <img src={PX.f2} alt="AI Assessment" className="w-full h-64 object-cover block" />
+              <div className="p-8 sm:p-11">
                 <h4 style={{ color: '#272727', fontSize: 28, fontWeight: 600, lineHeight: 1.2, margin: '0 0 14px' }}>AI Risk Assessment</h4>
                 <p style={{ color: '#6b6b6b', fontSize: 17, lineHeight: 1.6, margin: 0 }}>Select any student and run a structured AI analysis. Get a risk score (0–100), contributing factors, and a plain-language summary grounded in their actual data.</p>
               </div>
             </div>
             <div style={{ backgroundColor: '#E8E2ED', borderRadius: 22, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <img src={PX.f3} alt="Intervention Plans" style={{ width: '100%', height: 260, objectFit: 'cover', display: 'block' }} />
-              <div style={{ padding: '36px 44px 44px' }}>
+              <img src={PX.f3} alt="Intervention Plans" className="w-full h-64 object-cover block" />
+              <div className="p-8 sm:p-11">
                 <h4 style={{ color: '#272727', fontSize: 28, fontWeight: 600, lineHeight: 1.2, margin: '0 0 14px' }}>Intervention Plans</h4>
                 <p style={{ color: '#6b6b6b', fontSize: 17, lineHeight: 1.6, margin: 0 }}>Every at-risk assessment automatically generates a prioritized list of concrete interventions — ranked by impact and tailored to the student.</p>
               </div>
@@ -338,11 +320,11 @@ export default function LandingPage() {
           </div>
 
           {/* Row 3 – Burgundy pull-quote */}
-          <div style={{ backgroundColor: '#800532', borderRadius: 28, overflow: 'hidden', display: 'flex', marginBottom: 28 }}>
-            <div style={{ width: '32%', overflow: 'hidden', display: 'flex', alignItems: 'flex-end' }}>
-              <img src={PX.feat} alt="Educator" style={{ objectFit: 'cover', width: '130%', height: 400 }} />
+          <div className="flex flex-col md:flex-row" style={{ backgroundColor: '#800532', borderRadius: 28, overflow: 'hidden', marginBottom: 28 }}>
+            <div className="w-full md:w-[32%] flex items-end overflow-hidden">
+              <img src={PX.feat} alt="Educator" className="object-cover w-full md:w-[130%] h-[300px] md:h-[400px]" />
             </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 32, padding: '56px 72px 44px 60px', color: 'white' }}>
+            <div className="flex-1 flex flex-col justify-center gap-8 p-8 md:p-14 text-white">
               <blockquote style={{ margin: 0, fontSize: 22, fontWeight: 400, lineHeight: 1.5, letterSpacing: '-0.4px' }}>
                 "Finally — a tool that analyzes attendance, grades, and behavior together and tells me which student needs me most. RIN is giving educators exactly what we&apos;ve been missing."
               </blockquote>
@@ -353,17 +335,17 @@ export default function LandingPage() {
           </div>
 
           {/* Row 4 – Class Analytics + Parent Report */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28, marginBottom: 28 }}>
+          <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 28, marginBottom: 28 }}>
             <div style={{ backgroundColor: '#F6E1E6', borderRadius: 22, overflow: 'hidden' }}>
-              <img src={PX.f4} alt="Class Analytics" style={{ width: '100%', height: 240, objectFit: 'cover', display: 'block' }} />
-              <div style={{ padding: '36px 44px 44px' }}>
+              <img src={PX.f4} alt="Class Analytics" className="w-full h-60 object-cover block" />
+              <div className="p-8 sm:p-11">
                 <h4 style={{ color: '#272727', fontSize: 28, fontWeight: 600, lineHeight: 1.2, margin: '0 0 14px' }}>Class Analytics</h4>
                 <p style={{ color: '#6b6b6b', fontSize: 17, lineHeight: 1.6, margin: 0 }}>See risk distribution, top contributing factors, and improvement trends across your entire student roster at a glance.</p>
               </div>
             </div>
             <div style={{ backgroundColor: '#E0E4CA', borderRadius: 22, overflow: 'hidden' }}>
-              <img src={PX.f5} alt="Parent Report Generator" style={{ width: '100%', height: 240, objectFit: 'cover', display: 'block' }} />
-              <div style={{ padding: '36px 44px 44px' }}>
+              <img src={PX.f5} alt="Parent Report Generator" className="w-full h-60 object-cover block" />
+              <div className="p-8 sm:p-11">
                 <h4 style={{ color: '#272727', fontSize: 28, fontWeight: 600, lineHeight: 1.2, margin: '0 0 14px' }}>Parent Report Generator</h4>
                 <p style={{ color: '#6b6b6b', fontSize: 17, lineHeight: 1.6, margin: 0 }}>Generate clear, empathetic parent letters from any risk analysis — automatically formatted and ready to send.</p>
               </div>
@@ -371,9 +353,9 @@ export default function LandingPage() {
           </div>
 
           {/* Row 5 – See RIN in Action (video right, copy left) */}
-          <div id="how-it-works" style={{ borderRadius: 21, overflow: 'hidden', display: 'grid', gridTemplateColumns: '1fr 1fr', backgroundColor: '#230603' }}>
+          <div id="how-it-works" className="grid grid-cols-1 md:grid-cols-2" style={{ borderRadius: 21, overflow: 'hidden', backgroundColor: '#230603' }}>
             {/* Left copy */}
-            <div style={{ padding: '56px 56px 56px 56px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 22, color: 'white' }}>
+            <div className="flex flex-col justify-center gap-6 p-8 md:p-14 text-white">
               <h4 style={{ color: 'white', fontSize: 31.5, fontWeight: 600, margin: 0, lineHeight: 1.2 }}>See RIN in Action</h4>
               <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 17, margin: 0, lineHeight: 1.6 }}>
                 Watch how educators add their K–12 students, run an AI risk assessment, and get an intervention plan — all in under 3 minutes.
@@ -401,9 +383,9 @@ export default function LandingPage() {
       ════════════════════════════════════════════════════════════════ */}
       <section id="testimonials" style={{ backgroundColor: '#FBF7F5', paddingTop: 52, paddingBottom: 52 }}>
         <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 28px' }}>
-          <div style={{ columnCount: 3, columnGap: 20 }}>
+          <div className="columns-1 md:columns-2 lg:columns-3 gap-5 space-y-5">
             {TESTIMONIALS.map((t, i) => (
-              <div key={i} style={{ breakInside: 'avoid', display: 'inline-block', width: '100%', marginBottom: 18, borderRadius: 12, padding: '32px 28px', backgroundColor: t.dark ? '#800532' : '#F2E6EA' }}>
+              <div key={i} className="break-inside-avoid w-full mb-4 rounded-xl p-8" style={{ backgroundColor: t.dark ? '#800532' : '#F2E6EA' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ borderRadius: '50%', width: 44, height: 44, overflow: 'hidden', flexShrink: 0 }}>
@@ -441,7 +423,7 @@ export default function LandingPage() {
           </div>
 
           {/* Integration categories — 2×2 grid with larger logos */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 20, marginBottom: 48 }}>
+          <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 20, marginBottom: 48 }}>
             {[
               {
                 cat: 'Communication & Calendar',

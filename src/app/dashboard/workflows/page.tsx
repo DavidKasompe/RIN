@@ -73,7 +73,7 @@ function Sidebar() {
     };
 
     return (
-        <div style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, borderRight: '1px solid rgba(0,0,0,0.05)', paddingRight: 16 }}>
+        <div className="w-full lg:w-[240px] flex-shrink-0 flex flex-col gap-4 lg:border-r border-[rgba(0,0,0,0.05)] lg:pr-4 overflow-y-auto max-h-[300px] lg:max-h-full">
             <div>
                 <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(35,6,3,0.35)', margin: '0 0 8px' }}>1. When this happens...</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -220,7 +220,7 @@ function FlowCanvas() {
     }
 
     return (
-        <div style={{ display: 'flex', flex: 1, minHeight: 0, gap: 16 }}>
+        <div className="flex flex-col lg:flex-row flex-1 min-h-0 gap-4">
             <Sidebar />
 
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
@@ -270,7 +270,7 @@ function FlowCanvas() {
 
             {/* Property Panel */}
             {selectedNode && (
-                <div style={{ width: 280, flexShrink: 0, padding: 16, border: '1px solid rgba(0,0,0,0.05)', borderRadius: 12, backgroundColor: '#FAFAF8', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
+                <div className="w-full lg:w-[280px] flex-shrink-0 p-4 border border-[rgba(0,0,0,0.05)] rounded-xl bg-[#FAFAF8] flex flex-col gap-4 overflow-y-auto max-h-[400px] lg:max-h-full">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h3 style={{ margin: 0, fontSize: 16, color: '#230603' }}>Properties</h3>
                         <button onClick={deleteSelectedNode} style={{ color: '#E74C3C', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Delete</button>
@@ -458,9 +458,9 @@ export default function WorkflowsPage() {
     };
 
     return (
-        <div style={{ fontFamily: 'Inter, system-ui, sans-serif', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', gap: 0 }}>
+        <div style={{ fontFamily: 'Inter, system-ui, sans-serif', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', gap: 0, minHeight: '800px' }}>
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
                 <div>
                     <h1 style={{ fontSize: 24, fontWeight: 700, color: '#230603', margin: 0, letterSpacing: '-0.8px' }}>Workflows Builder</h1>
                     <p style={{ fontSize: 14, color: 'rgba(35,6,3,0.45)', margin: '4px 0 0' }}>Drag and drop nodes to build smart notifications</p>

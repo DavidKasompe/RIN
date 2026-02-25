@@ -163,26 +163,20 @@ export default function ArtifactsDrawer() {
       )}
 
       {/* Drawer panel */}
-      <div style={{
-        position: 'fixed', top: 0, right: 0, bottom: 0,
-        width: 520,
-        backgroundColor: 'rgb(250,249,247)',
-        boxShadow: '-8px 0 40px rgba(0,0,0,0.12)',
-        zIndex: 1001,
-        display: 'flex', flexDirection: 'column',
-        fontFamily: 'Inter, system-ui, sans-serif',
+      <div className="fixed top-0 right-0 bottom-0 w-full max-w-[520px] bg-[rgb(250,249,247)] shadow-[-8px_0_40px_rgba(0,0,0,0.12)] z-[1001] flex flex-col font-sans"
+        style={{
         transform: open ? 'translateX(0)' : 'translateX(100%)',
         transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1)',
       }}>
         {/* Header */}
         <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16,
           padding: '20px 24px',
           borderBottom: '1px solid rgba(35,6,3,0.08)',
           flexShrink: 0,
         }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#230603', letterSpacing: '-0.4px' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#230603', letterSpacing: '-0.4px', lineHeight: 1.3 }}>
               Saved Reports &amp; Slides
             </h2>
             <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(35,6,3,0.45)' }}>
@@ -191,7 +185,7 @@ export default function ArtifactsDrawer() {
           </div>
           <button
             onClick={() => setOpen(false)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'rgba(35,6,3,0.4)' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'rgba(35,6,3,0.4)', flexShrink: 0 }}
           >
             <CloseCircle size={22} color="rgba(35,6,3,0.4)" variant="Bulk" />
           </button>

@@ -108,11 +108,11 @@ export default function CalendarPage() {
     const grid = daysInGrid();
 
     return (
-        <div style={{ fontFamily: 'Inter, system-ui, sans-serif', display: 'flex', gap: 20, height: 'calc(100vh - 120px)' }}>
+        <div className="font-sans flex flex-col lg:flex-row gap-5 h-auto lg:h-[calc(100vh-120px)] lg:overflow-hidden pb-10">
             {/* Main calendar */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <div className="flex-1 flex flex-col min-w-0">
                 {/* Month header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
                     <div>
                         <h1 style={{ fontSize: 24, fontWeight: 700, color: '#230603', margin: 0, letterSpacing: '-0.8px' }}>Calendar</h1>
                         <p style={{ fontSize: 14, color: 'rgba(35,6,3,0.45)', margin: '4px 0 0' }}>Schedule meetings, interventions, and follow-ups</p>
@@ -173,7 +173,7 @@ export default function CalendarPage() {
             </div>
 
             {/* Sidebar — upcoming events */}
-            <div style={{ width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
+            <div className="w-full lg:w-[260px] flex-shrink-0 flex flex-col gap-3 overflow-y-auto mt-6 lg:mt-0">
                 <p style={{ margin: 0, fontSize: 11, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', color: 'rgba(35,6,3,0.35)', paddingTop: 52 }}>Upcoming Events</p>
                 {upcoming.length === 0 ? (
                     <p style={{ fontSize: 13, color: 'rgba(35,6,3,0.35)', fontStyle: 'italic' }}>No upcoming events.</p>
