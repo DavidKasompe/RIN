@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="public/RIN-Logo.png" alt="RIN Logo" width="180" />
-</p>
-
 <h1 align="center">RIN — Responsible Insight Navigator</h1>
 
 <p align="center">
