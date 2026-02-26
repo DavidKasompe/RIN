@@ -1,0 +1,3 @@
+src/app/dashboard/students/page.tsx(7,23): error TS2307: Cannot find module '@/components/dashboard/RiskBadge' or its corresponding type declarations.
+src/app/dashboard/students/page.tsx(8,33): error TS2307: Cannot find module '@/components/shared/Shimmer' or its corresponding type declarations.
+src/app/dashboard/students/page.tsx(9,39): error TS2307: Cannot find module '@/lib/contextStore' or its corresponding type declarations.

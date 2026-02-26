@@ -2,7 +2,7 @@ import { ShimmerBar, ShimmerCard } from '@/components/shared/Shimmer';
 
 export default function SettingsLoading() {
     return (
-        <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", maxWidth: 680 }}>
+        <div style={{ fontFamily: "'Inter', system-ui, sans-serif", maxWidth: 760, margin: '0 auto', paddingBottom: 64 }}>
             {/* Header */}
             <div style={{ marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <ShimmerBar width={120} height={26} radius={8} />

@@ -44,6 +44,14 @@ export async function createSchoolAction(schoolName: string) {
             .set({ schoolId: newSchool.id, role: 'administrator' })
             .where(eq(users.id, session.user.id));
 
+        // 3. Mark the user as a member of this workspace
+        await db.insert(require('@/db/schema').userSchools).values({
+            id: 'us_' + Math.random().toString(36).substr(2, 9),
+            userId: session.user.id,
+            schoolId: newSchool.id,
+            role: 'administrator'
+        });
+
         return { success: true, school: newSchool };
     } catch (error) {
         console.error('Error creating school:', error);
@@ -79,9 +87,63 @@ export async function joinSchoolAction(inviteCode: string) {
             .set({ schoolId: targetSchool.id })
             .where(eq(users.id, session.user.id));
 
+        // 3. Ensure they are in userSchools (upsert or ignore)
+        const existingMembership = await db.select().from(require('@/db/schema').userSchools)
+            .where(require('drizzle-orm').and(
+                require('drizzle-orm').eq(require('@/db/schema').userSchools.userId, session.user.id),
+                require('drizzle-orm').eq(require('@/db/schema').userSchools.schoolId, targetSchool.id)
+            ));
+            
+        if (existingMembership.length === 0) {
+            await db.insert(require('@/db/schema').userSchools).values({
+                id: 'us_' + Math.random().toString(36).substr(2, 9),
+                userId: session.user.id,
+                schoolId: targetSchool.id,
+                role: 'educator'
+            });
+        }
+
         return { success: true, school: targetSchool };
     } catch (error) {
         console.error('Error joining school:', error);
         return { success: false, error: 'Failed to join school.' };
+    }
+}
+
+export async function switchWorkspaceAction(schoolId: string) {
+    try {
+        const session = await auth.api.getSession({
+            headers: await headers()
+        });
+
+        if (!session?.user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        if (!db) {
+            return { success: false, error: 'Database connection failed' };
+        }
+
+        // Verify the user is actually a member of this school
+        const membership = await db.select().from(require('@/db/schema').userSchools).where(
+            require('drizzle-orm').and(
+                require('drizzle-orm').eq(require('@/db/schema').userSchools.userId, session.user.id),
+                require('drizzle-orm').eq(require('@/db/schema').userSchools.schoolId, schoolId)
+            )
+        );
+
+        if (membership.length === 0) {
+            return { success: false, error: 'You are not a member of this workspace.' };
+        }
+
+        // Update active schoolId
+        await db.update(users)
+            .set({ schoolId: schoolId })
+            .where(eq(users.id, session.user.id));
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error switching workspace:', error);
+        return { success: false, error: 'Failed to switch workspace.' };
     }
 }

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { getTeamDetailsAction } from '../../app/api/school/team';
-import { useSession } from '@/lib/auth-client';
+import { useSession, authClient } from '@/lib/auth-client';
 import {
     Message2,
     People,
@@ -34,8 +34,11 @@ export default function Sidebar() {
     const router = useRouter();
     const { data: session } = useSession();
     const [schoolName, setSchoolName] = useState('Loading...');
+    const [schoolId, setSchoolId] = useState<string | null>(null);
+    const [workspaces, setWorkspaces] = useState<Array<{ id: string, name: string, role: string }>>([]);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
+    const [isSwitching, setIsSwitching] = useState(false);
 
     useEffect(() => {
         setIsMobileOpen(false);
@@ -47,6 +50,9 @@ export default function Sidebar() {
                 const res = await getTeamDetailsAction();
                 if (res.success && res.school) {
                     setSchoolName(res.school.name);
+                    setSchoolId(res.school.id);
+                    // @ts-ignore
+                    setWorkspaces(res.workspaces || []);
                 } else {
                     setSchoolName('My Workspace');
                 }
@@ -56,6 +62,19 @@ export default function Sidebar() {
         }
         fetchSchool();
     }, []);
+
+    const handleSwitchWorkspace = async (targetId: string) => {
+        if (targetId === schoolId) return;
+        setIsSwitching(true);
+        const { switchWorkspaceAction } = await import('../../app/api/school/actions');
+        const res = await switchWorkspaceAction(targetId);
+        if (res.success) {
+            window.location.reload();
+        } else {
+            setIsSwitching(false);
+            console.error(res.error);
+        }
+    };
 
     const isActive = (href: string) =>
         href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href);
@@ -169,19 +188,53 @@ export default function Sidebar() {
                             <div style={{ padding: '8px 12px', fontSize: 11, fontWeight: 700, color: 'rgba(35,6,3,0.4)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                                 Workspaces
                             </div>
-                            <button style={{
-                                width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-                                borderRadius: 8, border: 'none', backgroundColor: 'rgba(128,5,50,0.06)', cursor: 'default'
-                            }}>
-                                <div style={{
-                                    width: 24, height: 24, borderRadius: 6, backgroundColor: '#800532', color: 'white',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700
-                                }}>
-                                    {schoolName === 'Loading...' ? '...' : schoolName.charAt(0).toUpperCase()}
-                                </div>
-                                <span style={{ fontSize: 14, fontWeight: 600, color: '#230603' }}>{schoolName}</span>
-                                <Check size={16} color="#800532" style={{ marginLeft: 'auto' }} />
-                            </button>
+                            
+                            <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                                {workspaces.length > 0 ? (
+                                    workspaces.map((ws) => (
+                                        <button 
+                                            key={ws.id}
+                                            onClick={() => handleSwitchWorkspace(ws.id)}
+                                            style={{
+                                                width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                                                borderRadius: 8, border: 'none', 
+                                                backgroundColor: ws.id === schoolId ? 'rgba(128,5,50,0.06)' : 'transparent', 
+                                                cursor: isSwitching ? 'wait' : 'pointer', transition: 'background-color 0.2s',
+                                                opacity: isSwitching ? 0.7 : 1
+                                            }}
+                                            onMouseEnter={e => { if (ws.id !== schoolId && !isSwitching) e.currentTarget.style.backgroundColor = 'rgba(35,6,3,0.04)' }}
+                                            onMouseLeave={e => { if (ws.id !== schoolId && !isSwitching) e.currentTarget.style.backgroundColor = 'transparent' }}
+                                        >
+                                            <div style={{
+                                                width: 24, height: 24, borderRadius: 6, backgroundColor: ws.id === schoolId ? '#800532' : 'rgba(35,6,3,0.2)', color: 'white',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700
+                                            }}>
+                                                {ws.name.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', overflow: 'hidden' }}>
+                                                <span style={{ fontSize: 13, fontWeight: 600, color: '#230603', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px' }}>{ws.name}</span>
+                                                <span style={{ fontSize: 11, color: 'rgba(35,6,3,0.5)' }}>{ws.role}</span>
+                                            </div>
+                                            {ws.id === schoolId && <Check size={16} color="#800532" style={{ marginLeft: 'auto' }} />}
+                                        </button>
+                                    ))
+                                ) : (
+                                    <button style={{
+                                        width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                                        borderRadius: 8, border: 'none', backgroundColor: 'rgba(128,5,50,0.06)', cursor: 'default'
+                                    }}>
+                                        <div style={{
+                                            width: 24, height: 24, borderRadius: 6, backgroundColor: '#800532', color: 'white',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700
+                                        }}>
+                                            {schoolName === 'Loading...' ? '...' : schoolName.charAt(0).toUpperCase()}
+                                        </div>
+                                        <span style={{ fontSize: 14, fontWeight: 600, color: '#230603' }}>{schoolName}</span>
+                                        <Check size={16} color="#800532" style={{ marginLeft: 'auto' }} />
+                                    </button>
+                                )}
+                            </div>
+
                             <div style={{ height: 1, backgroundColor: 'rgba(35,6,3,0.06)', margin: '4px 0' }} />
                             <button
                                 onClick={() => {
@@ -299,7 +352,9 @@ export default function Sidebar() {
                                 {session?.user?.role || 'Member'}
                             </div>
                         </div>
-                        <button onClick={() => router.push('/signin')} title="Sign out" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'rgba(35,6,3,0.4)', display: 'flex', alignItems: 'center' }}>
+                        <button onClick={async () => {
+                            await authClient.signOut({ fetchOptions: { onSuccess: () => router.push('/signin') } });
+                        }} title="Sign out" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'rgba(35,6,3,0.4)', display: 'flex', alignItems: 'center' }}>
                             <LogoutCurve size={16} color="rgb(114,106,90)" />
                         </button>
                     </div>

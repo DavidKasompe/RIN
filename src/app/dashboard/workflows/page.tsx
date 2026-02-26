@@ -15,6 +15,7 @@ import {
     useReactFlow,
     type Connection,
     type Node,
+    type Edge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Play, Flash, Cpu, Routing2, Notification1, DocumentText, Save2, Magicpen } from 'iconsax-reactjs';
@@ -29,7 +30,16 @@ const NODE_STYLES: Record<string, { bg: string; border: string; icon: React.Reac
     output: { bg: 'rgba(35,6,3,0.05)', border: 'rgba(35,6,3,0.4)', icon: <DocumentText size={14} color="#230603" />, label: 'Result' },
 };
 
-function FlowNode({ data, type: nodeType, selected }: { data: { label: string; description?: string }; type: string; selected?: boolean }) {
+const INTEGRATION_LOGOS: Record<string, string> = {
+    'Slack Message': 'https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg',
+    'Gmail Send': 'https://upload.wikimedia.org/wikipedia/commons/7/7e/Gmail_icon_%282020%29.svg',
+    'Calendar Event': 'https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg',
+    'Notion Page': 'https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png',
+    'Sheets Row': 'https://upload.wikimedia.org/wikipedia/commons/3/30/Google_Sheets_logo_%282014-2020%29.svg',
+    'Drive Upload': 'https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg',
+};
+
+function FlowNode({ data, type: nodeType, selected }: { data: { label: string; description?: string; config?: any }; type: string; selected?: boolean }) {
     const style = NODE_STYLES[nodeType] ?? NODE_STYLES.action;
     return (
         <div style={{
@@ -45,7 +55,9 @@ function FlowNode({ data, type: nodeType, selected }: { data: { label: string; d
         }}>
             <Handle type="target" position={Position.Top} style={{ background: style.border, width: 8, height: 8, border: 'none' }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                {style.icon}
+                {data.config?.actionType && INTEGRATION_LOGOS[data.config.actionType] ? (
+                    <img src={INTEGRATION_LOGOS[data.config.actionType]} alt="" width={14} height={14} style={{ objectFit: 'contain' }} />
+                ) : style.icon}
                 <span style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(35,6,3,0.4)' }}>{style.label}</span>
             </div>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#230603', letterSpacing: '-0.2px', lineHeight: 1.3 }}>{data.label || 'Unnamed Node'}</div>
@@ -102,12 +114,12 @@ function Sidebar() {
             <div>
                 <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(35,6,3,0.35)', margin: '0 0 8px' }}>Integration Actions</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <div className="dndnode" onDragStart={(e) => onDragStart(e, 'integration', 'Slack Message', 'Slack Message')} draggable style={{ border: '1px solid #8E44AD', background: 'rgba(142,68,173,0.08)', padding: '7px 12px', borderRadius: 8, fontSize: 12, cursor: 'grab' }}>💬 Slack Message</div>
-                    <div className="dndnode" onDragStart={(e) => onDragStart(e, 'integration', 'Gmail Send', 'Gmail Send')} draggable style={{ border: '1px solid #8E44AD', background: 'rgba(142,68,173,0.08)', padding: '7px 12px', borderRadius: 8, fontSize: 12, cursor: 'grab' }}>📧 Gmail Send</div>
-                    <div className="dndnode" onDragStart={(e) => onDragStart(e, 'integration', 'Calendar Event', 'Calendar Event')} draggable style={{ border: '1px solid #8E44AD', background: 'rgba(142,68,173,0.08)', padding: '7px 12px', borderRadius: 8, fontSize: 12, cursor: 'grab' }}>📅 Calendar Event</div>
-                    <div className="dndnode" onDragStart={(e) => onDragStart(e, 'integration', 'Notion Page', 'Notion Page')} draggable style={{ border: '1px solid #8E44AD', background: 'rgba(142,68,173,0.08)', padding: '7px 12px', borderRadius: 8, fontSize: 12, cursor: 'grab' }}>📝 Notion Page</div>
-                    <div className="dndnode" onDragStart={(e) => onDragStart(e, 'integration', 'Sheets Row', 'Sheets Row')} draggable style={{ border: '1px solid #8E44AD', background: 'rgba(142,68,173,0.08)', padding: '7px 12px', borderRadius: 8, fontSize: 12, cursor: 'grab' }}>📊 Google Sheets Row</div>
-                    <div className="dndnode" onDragStart={(e) => onDragStart(e, 'integration', 'Drive Upload', 'Drive Upload')} draggable style={{ border: '1px solid #8E44AD', background: 'rgba(142,68,173,0.08)', padding: '7px 12px', borderRadius: 8, fontSize: 12, cursor: 'grab' }}>📁 Google Drive Upload</div>
+                    <div className="dndnode" onDragStart={(e) => onDragStart(e, 'integration', 'Slack Message', 'Slack Message')} draggable style={{ border: '1px solid rgba(142,68,173,0.3)', background: 'rgba(142,68,173,0.04)', padding: '7px 12px', borderRadius: 8, fontSize: 13, cursor: 'grab', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500 }}><img src="https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg" alt="Slack" width={16} height={16} /> Slack Message</div>
+                    <div className="dndnode" onDragStart={(e) => onDragStart(e, 'integration', 'Gmail Send', 'Gmail Send')} draggable style={{ border: '1px solid rgba(142,68,173,0.3)', background: 'rgba(142,68,173,0.04)', padding: '7px 12px', borderRadius: 8, fontSize: 13, cursor: 'grab', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500 }}><img src="https://upload.wikimedia.org/wikipedia/commons/7/7e/Gmail_icon_%282020%29.svg" alt="Gmail" width={16} height={16} /> Gmail Send</div>
+                    <div className="dndnode" onDragStart={(e) => onDragStart(e, 'integration', 'Calendar Event', 'Calendar Event')} draggable style={{ border: '1px solid rgba(142,68,173,0.3)', background: 'rgba(142,68,173,0.04)', padding: '7px 12px', borderRadius: 8, fontSize: 13, cursor: 'grab', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500 }}><img src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg" alt="Calendar" width={16} height={16} /> Calendar Event</div>
+                    <div className="dndnode" onDragStart={(e) => onDragStart(e, 'integration', 'Notion Page', 'Notion Page')} draggable style={{ border: '1px solid rgba(142,68,173,0.3)', background: 'rgba(142,68,173,0.04)', padding: '7px 12px', borderRadius: 8, fontSize: 13, cursor: 'grab', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500 }}><img src="https://upload.wikimedia.org/wikipedia/commons/4/45/Notion_app_logo.png" alt="Notion" width={16} height={16} style={{ objectFit: 'contain' }} /> Notion Page</div>
+                    <div className="dndnode" onDragStart={(e) => onDragStart(e, 'integration', 'Sheets Row', 'Sheets Row')} draggable style={{ border: '1px solid rgba(142,68,173,0.3)', background: 'rgba(142,68,173,0.04)', padding: '7px 12px', borderRadius: 8, fontSize: 13, cursor: 'grab', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500 }}><img src="https://upload.wikimedia.org/wikipedia/commons/3/30/Google_Sheets_logo_%282014-2020%29.svg" alt="Sheets" width={16} height={16} /> Google Sheets Row</div>
+                    <div className="dndnode" onDragStart={(e) => onDragStart(e, 'integration', 'Drive Upload', 'Drive Upload')} draggable style={{ border: '1px solid rgba(142,68,173,0.3)', background: 'rgba(142,68,173,0.04)', padding: '7px 12px', borderRadius: 8, fontSize: 13, cursor: 'grab', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500 }}><img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" alt="Drive" width={16} height={16} /> Google Drive Upload</div>
                 </div>
             </div>
         </div>
@@ -116,7 +128,7 @@ function Sidebar() {
 
 function FlowCanvas() {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
-    const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+    const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [selectedNode, setSelectedNode] = useState<Node | null>(null);
     const { screenToFlowPosition } = useReactFlow();
 

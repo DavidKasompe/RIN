@@ -14,6 +14,7 @@ type Student = {
     attendanceRate: number; gpa: number; assignmentCompletion: number;
     behaviorReferrals: number; lateSubmissions: number; notes?: string | null;
     tags?: string[] | null;
+    parentName?: string | null; parentEmail?: string | null; parentPhone?: string | null;
     lastRiskScore?: number | null; lastRiskCategory?: string | null;
 };
 type SortKey = 'name' | 'grade' | 'attendanceRate' | 'gpa' | 'assignmentCompletion' | 'lastRiskScore';
@@ -234,7 +235,7 @@ export default function StudentsPage() {
 
 // ─── Student Slide-Over ───────────────────────────────────────────────────────
 function StudentSlideOver({ student, onClose, onSave }: { student: Student | null; onClose: () => void; onSave: (data: Partial<Student>) => Promise<void> }) {
-    const blank: Partial<Student> = { id: `stu-${Date.now()}`, name: '', studentId: '', grade: '9', subject: '', attendanceRate: 90, gpa: 3.0, assignmentCompletion: 85, behaviorReferrals: 0, lateSubmissions: 0, notes: '', tags: [] };
+    const blank: Partial<Student> = { id: `stu-${Date.now()}`, name: '', studentId: '', grade: '9', subject: '', attendanceRate: 90, gpa: 3.0, assignmentCompletion: 85, behaviorReferrals: 0, lateSubmissions: 0, notes: '', tags: [], parentName: '', parentEmail: '', parentPhone: '' };
     const [form, setForm] = useState<Partial<Student>>(student ?? blank);
     const [saving, setSaving] = useState(false);
 
@@ -266,6 +267,14 @@ function StudentSlideOver({ student, onClose, onSave }: { student: Student | nul
                         </div>
                     </div>
                     {field('Subject / Class', 'subject')}
+                    <div style={{ borderTop: '1px solid rgba(35,6,3,0.07)', paddingTop: 12 }}>
+                        <p style={{ margin: '0 0 12px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.07em', color: 'rgba(35,6,3,0.4)' }}>Parent / Guardian Contacts</p>
+                        {field('Parent Name', 'parentName')}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+                            {field('Parent Email', 'parentEmail', 'email')}
+                            {field('Parent Phone', 'parentPhone', 'tel')}
+                        </div>
+                    </div>
                     <div style={{ borderTop: '1px solid rgba(35,6,3,0.07)', paddingTop: 12 }}>
                         <p style={{ margin: '0 0 12px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.07em', color: 'rgba(35,6,3,0.4)' }}>Academic Indicators</p>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -311,15 +320,18 @@ function CSVModal({ onClose, onImport }: { onClose: () => void; onImport: (rows:
                 if (!parts[0]) throw new Error(`Row ${i + 2}: Name is required`);
                 return {
                     id: `csv-${Date.now()}-${i}`,
-                    name: parts[0],
+                    name: parts[0] || 'Unknown',
                     studentId: parts[1] || `ID-${Date.now()}-${i}`,
                     grade: parts[2] || '9',
                     gpa: parseFloat(parts[3]) || 3.0,
                     attendanceRate: parseFloat(parts[4]) || 90,
+                    parentName: parts[5] || '',
+                    parentEmail: parts[6] || '',
+                    parentPhone: parts[7] || '',
+                    notes: parts[8] || '',
                     assignmentCompletion: 85,
                     behaviorReferrals: 0,
                     lateSubmissions: 0,
-                    notes: parts[8] || '',
                     tags: [],
                 };
             });
@@ -372,11 +384,32 @@ function CSVModal({ onClose, onImport }: { onClose: () => void; onImport: (rows:
                 ) : (
                     <div style={{ padding: '20px 28px' }}>
                         <p style={{ fontSize: 12, color: 'rgba(35,6,3,0.45)', margin: '0 0 4px' }}>Required: Name, Student ID, Grade · Optional: GPA, Attendance%, Parent Name, Email, Phone, Notes</p>
-                        <div style={{ backgroundColor: 'rgba(35,6,3,0.04)', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: 'rgba(35,6,3,0.5)', fontFamily: 'monospace', marginBottom: 12 }}>Sarah Jenkins,STU-001,11,1.8,72,Robert Jenkins,r.jenkins@example.com,,Frequent absences</div>
-                        <textarea value={text} onChange={e => { setText(e.target.value); setError(''); }} rows={8} placeholder="Paste CSV content here (including header row)..."
-                            style={{ width: '100%', padding: '12px', borderRadius: 9, border: '1px solid rgba(35,6,3,0.12)', fontSize: 13, fontFamily: 'monospace', resize: 'vertical' as const, outline: 'none', backgroundColor: 'white', color: '#230603', boxSizing: 'border-box' as const }} />
-                        {error && <p style={{ margin: '6px 0 0', fontSize: 13, color: '#C0392B' }}>{error}</p>}
-                        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                        <div style={{ backgroundColor: 'rgba(35,6,3,0.04)', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: 'rgba(35,6,3,0.5)', fontFamily: 'monospace', marginBottom: 16 }}>Sarah Jenkins,STU-001,11,1.8,72,Robert Jenkins,r.jenkins@example.com,555-0100,Frequent absences</div>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+                            <label style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                padding: '16px', backgroundColor: 'rgba(128,5,50,0.05)', border: '2px dashed rgba(128,5,50,0.2)',
+                                borderRadius: 10, cursor: 'pointer', transition: 'all 0.2s', textAlign: 'center'
+                            }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(128,5,50,0.08)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(128,5,50,0.05)'}>
+                                <input type="file" accept=".csv" onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    const reader = new FileReader();
+                                    reader.onload = (evt) => setText(evt.target?.result as string || '');
+                                    reader.readAsText(file);
+                                }} style={{ display: 'none' }} />
+                                <span style={{ fontSize: 14, fontWeight: 600, color: '#800532' }}>Choose a .csv File</span>
+                            </label>
+
+                            <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 600, color: 'rgba(35,6,3,0.4)' }}>OR</div>
+
+                            <textarea value={text} onChange={e => { setText(e.target.value); setError(''); }} rows={6} placeholder="Paste CSV values here..."
+                                style={{ width: '100%', padding: '12px', borderRadius: 9, border: '1px solid rgba(35,6,3,0.12)', fontSize: 13, fontFamily: 'monospace', resize: 'vertical' as const, outline: 'none', backgroundColor: 'white', color: '#230603', boxSizing: 'border-box' as const }} />
+                        </div>
+                        
+                        {error && <p style={{ margin: '0 0 16px', fontSize: 13, color: '#C0392B' }}>{error}</p>}
+                        <div style={{ display: 'flex', gap: 10 }}>
                             <button onClick={() => setStep('choose')} style={{ flex: 1, padding: '11px', backgroundColor: 'white', border: '1px solid rgba(35,6,3,0.12)', borderRadius: 10, fontSize: 14, fontWeight: 600, color: '#230603', cursor: 'pointer', fontFamily: 'inherit' }}>Back</button>
                             <button onClick={parse} disabled={importing || !text.trim()} style={{ flex: 1, padding: '11px', backgroundColor: '#800532', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, color: 'white', cursor: importing ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: importing || !text.trim() ? 0.6 : 1 }}>
                                 {importing ? 'Importing...' : 'Import Students'}

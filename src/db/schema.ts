@@ -22,6 +22,15 @@ export const users = pgTable('users', {
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+// ─── User Schools (Many-to-Many Workspaces) ──────────────────────────────────
+export const userSchools = pgTable('user_schools', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    schoolId: text('school_id').notNull().references(() => schools.id, { onDelete: 'cascade' }),
+    role: text('role').notNull().default('educator'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
 // ─── Sessions (better-auth) ──────────────────────────────────────────────────
 export const sessions = pgTable('sessions', {
     id: text('id').primaryKey(),
@@ -65,6 +74,7 @@ export const verifications = pgTable('verifications', {
 export const students = pgTable('students', {
     id: text('id').primaryKey(),
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    schoolId: text('school_id').references(() => schools.id, { onDelete: 'cascade' }),
 
     // Identity
     name: text('name').notNull(),
@@ -72,6 +82,11 @@ export const students = pgTable('students', {
     email: text('email'),
     grade: text('grade').notNull(),
     subject: text('subject'),
+
+    // Parent / Guardian info
+    parentName: text('parent_name'),
+    parentEmail: text('parent_email'),
+    parentPhone: text('parent_phone'),
 
     // Academic indicators
     attendanceRate: real('attendance_rate').notNull().default(100),

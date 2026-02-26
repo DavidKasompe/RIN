@@ -217,14 +217,14 @@ export default function IntegrationsPage() {
 
             {/* Secured by Composio badge */}
             <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 marginTop: 32, padding: '14px 0',
                 borderTop: '1px solid rgba(228,221,205,0.5)',
             }}>
                 <Icon icon="lucide:shield-check" width={15} style={{ color: 'rgb(160,155,145)' }} />
                 <span style={{ fontSize: 13, color: 'rgb(160,155,145)', fontWeight: 500 }}>Secured by</span>
-                <a href="https://composio.dev" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                    <img src="/composio-logo.svg" alt="Composio" height={16} style={{ opacity: 0.45, transition: 'opacity 0.2s' }} onMouseEnter={e => (e.currentTarget.style.opacity = '0.8')} onMouseLeave={e => (e.currentTarget.style.opacity = '0.45')} />
+                <a href="https://composio.dev" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'rgb(160,155,145)' }}>Composio</span>
                 </a>
             </div>
         </div>

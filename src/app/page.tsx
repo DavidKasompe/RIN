@@ -35,23 +35,7 @@ const PX = {
   t6: 'https://images.pexels.com/photos/1181695/pexels-photo-1181695.jpeg?auto=compress&cs=tinysrgb&w=200',
 };
 
-const SCHOOLS = [
-  'Lincoln Unified School District', 'Riverside Charter K–12', 'Northside Elementary',
-  'Madison Middle School', 'Jefferson High School', 'Sunrise Academy',
-  'Parkview K–8', 'Westfield USD', 'Cedar Grove School', 'Clearwater District',
-];
 
-const TESTIMONIALS = [
-  { avatar: PX.t1, name: 'Maria Santos', role: '8th Grade English Teacher', quote: '"Every at-risk student I hadn\'t noticed showed up in RIN within a week. I\'ve never had a tool flag concerns this early."', dark: false },
-  { avatar: PX.t2, name: 'James Okafor', role: 'School Counselor, Lincoln Unified', quote: '"The intervention plans are exactly what I needed — specific, actionable, and tied directly to each student\'s actual data. Not guesses."', dark: true },
-  { avatar: PX.t3, name: 'Priya Nair', role: 'Grade 10 Math Teacher', quote: '"Adding 28 students took about 5 minutes. Running full class analytics was instant."', dark: true },
-  { avatar: PX.t4, name: 'Diane Foster', role: 'Academic Dean, Madison Middle', quote: '"The parent report generator alone is worth it. What used to take me 45 minutes per student now takes one click."', dark: false },
-  { avatar: PX.t5, name: 'Carlos Reyes', role: '6th Grade Science Teacher', quote: '"I finally have a way to show administration concrete risk data, not just gut feelings. RIN gives me the receipts."', dark: true },
-  { avatar: PX.t6, name: 'Ayasha Morningstar', role: 'Special Ed Coordinator, K–8', quote: '"Works perfectly alongside IEP data. I use the tags to group students and the AI picks up on patterns I miss."', dark: false },
-  { avatar: PX.t1, name: 'Robert Chen', role: 'Grade 9 History Teacher', quote: '"RIN\'s early warning system caught a student sliding from Bs to Ds across three weeks. We intervened early enough to turn it around."', dark: false },
-  { avatar: PX.t3, name: 'Nkechi Adeyemi', role: 'Attendance Counselor', quote: '"Our school was flagging absenteeism manually. Now RIN surfaces it automatically with context. This is the tool we\'ve been waiting for."', dark: true },
-  { avatar: PX.t2, name: 'Linda Marsh', role: 'High School Vice Principal', quote: '"The class-wide radar chart made our Q3 review meeting half as long. Game changer for the whole team."', dark: false },
-];
 
 /* ── RIN Wordmark — clean Inter/sans ───────────────────────────────────── */
 function RinWordmark({ size = 28, color = '#800532' }: { size?: number; color?: string }) {
@@ -118,7 +102,6 @@ export default function LandingPage() {
               {[
                 { label: 'Features', href: '#features' },
                 { label: 'Integrations', href: '#integrations' },
-                { label: 'Educators', href: '#testimonials' },
                 { label: 'Pricing', href: '#pricing' },
               ].map(item => (
                 <a
@@ -180,7 +163,7 @@ export default function LandingPage() {
         {/* Mobile menu — solid cream drop-down */}
         {mobileOpen && (
           <div style={{ maxWidth: 1120, margin: '8px auto 0', borderRadius: 16, backgroundColor: 'rgba(250,243,236,0.96)', backdropFilter: 'blur(16px)', padding: '12px 24px 18px' }}>
-            {[{ label: 'Features', href: '#features' }, { label: 'Integrations', href: '#integrations' }, { label: 'Educators', href: '#testimonials' }, { label: 'Pricing', href: '#pricing' }].map(item => (
+            {[{ label: 'Features', href: '#features' }, { label: 'Integrations', href: '#integrations' }, { label: 'Pricing', href: '#pricing' }].map(item => (
               <a key={item.label} href={item.href} onClick={() => setMobileOpen(false)} style={{ display: 'block', textDecoration: 'none', color: '#230603', fontSize: 14, fontWeight: 500, padding: '10px 0', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>{item.label}</a>
             ))}
             {!isPending && session ? (
@@ -322,15 +305,12 @@ export default function LandingPage() {
           {/* Row 3 – Burgundy pull-quote */}
           <div className="flex flex-col md:flex-row" style={{ backgroundColor: '#800532', borderRadius: 28, overflow: 'hidden', marginBottom: 28 }}>
             <div className="w-full md:w-[32%] flex items-end overflow-hidden">
-              <img src={PX.feat} alt="Educator" className="object-cover w-full md:w-[130%] h-[300px] md:h-[400px]" />
+              <img src="https://images.pexels.com/photos/256455/pexels-photo-256455.jpeg?auto=compress&cs=tinysrgb&w=600" alt="School Campus" className="object-cover w-full md:w-[130%] h-[300px] md:h-[400px]" />
             </div>
             <div className="flex-1 flex flex-col justify-center gap-8 p-8 md:p-14 text-white">
-              <blockquote style={{ margin: 0, fontSize: 22, fontWeight: 400, lineHeight: 1.5, letterSpacing: '-0.4px' }}>
-                "Finally — a tool that analyzes attendance, grades, and behavior together and tells me which student needs me most. RIN is giving educators exactly what we&apos;ve been missing."
-              </blockquote>
-              <div style={{ fontSize: 14, lineHeight: 1.6, opacity: 0.75 }}>
-                — Maria Santos, 8th Grade English Teacher, Lincoln USD
-              </div>
+              <p style={{ margin: 0, fontSize: 22, fontWeight: 400, lineHeight: 1.5, letterSpacing: '-0.4px' }}>
+                Finally — a tool that analyzes attendance, grades, and behavior together and tells me which student needs me most. RIN is giving educators exactly what we&apos;ve been missing.
+              </p>
             </div>
           </div>
 
@@ -374,33 +354,6 @@ export default function LandingPage() {
               {/* Subtle left-edge overlay so it blends into the dark card */}
               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(35,6,3,0.55) 0%, transparent 45%)' }} />
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════════════════════════
-          TESTIMONIALS
-      ════════════════════════════════════════════════════════════════ */}
-      <section id="testimonials" style={{ backgroundColor: '#FBF7F5', paddingTop: 52, paddingBottom: 52 }}>
-        <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 28px' }}>
-          <div className="columns-1 md:columns-2 lg:columns-3 gap-5 space-y-5">
-            {TESTIMONIALS.map((t, i) => (
-              <div key={i} className="break-inside-avoid w-full mb-4 rounded-xl p-8" style={{ backgroundColor: t.dark ? '#800532' : '#F2E6EA' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ borderRadius: '50%', width: 44, height: 44, overflow: 'hidden', flexShrink: 0 }}>
-                      <img src={t.avatar} alt={t.name} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
-                    </div>
-                    <div style={{ color: t.dark ? 'rgba(255,255,255,0.75)' : '#800532', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1.5 }}>
-                      {t.name}<br />{t.role}
-                    </div>
-                  </div>
-                  <blockquote style={{ margin: 0, color: t.dark ? 'white' : '#600426', fontSize: 17, fontWeight: 500, lineHeight: 1.45, letterSpacing: '-0.4px' }}>
-                    {t.quote}
-                  </blockquote>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
@@ -619,7 +572,6 @@ export default function LandingPage() {
               {[
                 { label: 'Features', href: '#features' },
                 { label: 'Integrations', href: '#integrations' },
-                { label: 'Educators', href: '#testimonials' },
                 { label: 'Pricing', href: '#pricing' },
                 { label: 'Sign In', href: '/signin' },
                 { label: 'Get Started', href: '/signup' },

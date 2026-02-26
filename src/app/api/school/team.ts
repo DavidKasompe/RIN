@@ -42,14 +42,26 @@ export async function getTeamDetailsAction() {
             role: users.role,
         }).from(users).where(eq(users.schoolId, school.id));
 
+        // 4. Find all workspaces the current user is part of
+        const userWorkspaces = await db.select({
+            id: require('@/db/schema').schools.id,
+            name: require('@/db/schema').schools.name,
+            role: require('@/db/schema').userSchools.role,
+        })
+        .from(require('@/db/schema').userSchools)
+        .innerJoin(require('@/db/schema').schools, eq(require('@/db/schema').userSchools.schoolId, require('@/db/schema').schools.id))
+        .where(eq(require('@/db/schema').userSchools.userId, session.user.id));
+
         return {
             success: true,
             school: {
+                id: school.id,
                 name: school.name,
                 inviteCode: school.inviteCode,
                 createdAt: school.createdAt.toISOString(),
             },
-            members
+            members,
+            workspaces: userWorkspaces
         };
 
     } catch (error) {
