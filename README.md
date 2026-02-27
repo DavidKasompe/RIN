@@ -27,7 +27,7 @@
 
 ## 📋 Problem Statement
 
-Student dropout is one of the most pressing challenges in K–12 education. Nationwide, over **1.2 million students** drop out every year. Educators and counselors often lack the tooling to identify at-risk students early enough to intervene effectively. Traditional methods rely on delayed indicators, gut feeling, or siloed spreadsheets — by the time a student is flagged, it's often too late.
+Student dropout is one of the most pressing challenges in K–12 education. Nationwide, over **1.2 million students** drop out every year. Educators and counselors often lack the tools to identify at-risk students early enough to intervene effectively. Traditional methods rely on delayed indicators, gut feeling, or siloed spreadsheets — by the time a student is flagged, it's often too late.
 
 ## 💡 Our Solution
 
