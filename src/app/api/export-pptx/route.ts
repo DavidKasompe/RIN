@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
         } catch (persistError) {
             // Persist failed — fall back to streaming the buffer directly
             console.error('[export-pptx] Persist failed, falling back to direct download:', persistError);
+            try { require('fs').writeFileSync('.err.log', String(persistError instanceof Error ? persistError.stack : persistError)); } catch (e) {}
             return new NextResponse(buffer, {
                 headers: {
                     'Content-Type': PPTX_MIME,

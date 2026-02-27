@@ -34,6 +34,7 @@ export default function CalendarPage() {
     const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
     const [viewingEvent, setViewingEvent] = useState<CalendarEvent | null>(null);
     const [dayEventsPopover, setDayEventsPopover] = useState<{ day: Date; events: CalendarEvent[] } | null>(null);
+    const [calendarConnected, setCalendarConnected] = useState<boolean | null>(null);
 
     const fetchEvents = useCallback(async () => {
         const res = await fetch('/api/events');
@@ -42,6 +43,24 @@ export default function CalendarPage() {
     }, []);
 
     useEffect(() => { fetchEvents(); }, [fetchEvents]);
+
+    // Check if Google Calendar integration is connected
+    useEffect(() => {
+        fetch('/api/integrations')
+            .then(r => r.json())
+            .then(data => {
+                if (data?.items) {
+                    const gcal = data.items.find((t: any) =>
+                        (t.slug ?? t.name ?? '').toLowerCase().includes('google') &&
+                        (t.slug ?? t.name ?? '').toLowerCase().includes('calendar')
+                    );
+                    setCalendarConnected(!!gcal?.isConnected);
+                } else {
+                    setCalendarConnected(false);
+                }
+            })
+            .catch(() => setCalendarConnected(false));
+    }, []);
 
     const daysInGrid = () => {
         const first = startOfMonth(currentMonth);
@@ -130,6 +149,34 @@ export default function CalendarPage() {
                         </button>
                     </div>
                 </div>
+
+                {/* Google Calendar connect prompt — shown when not connected */}
+                {calendarConnected === false && (
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: 14,
+                        padding: '14px 18px',
+                        marginBottom: 16,
+                        background: 'rgba(128,5,50,0.04)',
+                        border: '1px solid rgba(128,5,50,0.15)',
+                        borderRadius: 12,
+                    }}>
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg" alt="Google Calendar" width={28} height={28} style={{ flexShrink: 0 }} />
+                        <div style={{ flex: 1 }}>
+                            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#230603' }}>Connect Google Calendar</p>
+                            <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(35,6,3,0.5)' }}>Sync your meetings automatically — events you add here will also appear in Google Calendar.</p>
+                        </div>
+                        <a href="/dashboard/integrations" style={{
+                            padding: '8px 16px',
+                            backgroundColor: '#800532',
+                            color: 'white',
+                            borderRadius: 9,
+                            fontSize: 13, fontWeight: 600,
+                            textDecoration: 'none',
+                            flexShrink: 0,
+                            whiteSpace: 'nowrap' as const,
+                        }}>Connect →</a>
+                    </div>
+                )}
 
                 {/* Day-of-week labels */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1, marginBottom: 4 }}>
@@ -341,7 +388,7 @@ function EventDetailModal({ event, onClose, onEdit, onDelete }: {
                 </div>
 
                 {/* Actions */}
-                <div style={{ padding: '12px 24px 16px', borderTop: '1px solid rgba(35,6,3,0.06)', display: 'flex', gap: 8 }}>
+                <div style={{ padding: '12px 24px 20px', display: 'flex', gap: 8 }}>
                     <button onClick={onDelete} style={{ padding: '8px 14px', backgroundColor: 'rgba(192,57,43,0.06)', border: '1px solid rgba(192,57,43,0.12)', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#C0392B', cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s' }}
                         onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(192,57,43,0.12)')}
                         onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'rgba(192,57,43,0.06)')}>

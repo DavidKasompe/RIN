@@ -13,6 +13,7 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   isStreaming?: boolean;
+  type?: 'system'; // used for injected guide messages — renders as plain text, not via C1Component
 }
 
 // ─── RIN theme ────────────────────────────────────────────────────────────────
@@ -107,8 +108,11 @@ function UserBubble({ content }: { content: string }) {
 // ─── Assistant bubble ─────────────────────────────────────────────────────────
 // onAction: routes C1 button/form clicks into the next chat turn
 // exportAsPdf / exportAsPPTX: triggered by C1 artifact download buttons
-async function handleExportPdf({ exportParams, title }: { exportParams: string; title: string }) {
+async function handleExportPdf(args: any) {
   try {
+    const exportParams = args?.exportParams || args?.artifactId || '';
+    const title = args?.title || args?.artifactId || 'rin-report';
+    
     const res = await fetch('/api/export-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -126,7 +130,7 @@ async function handleExportPdf({ exportParams, title }: { exportParams: string; 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${(title || 'rin-report').replace(/\.pdf$/i, '')}.pdf`;
+      a.download = `${title.replace(/\.pdf$/i, '')}.pdf`;
       document.body.appendChild(a);
       a.click();
       URL.revokeObjectURL(url);
@@ -137,8 +141,11 @@ async function handleExportPdf({ exportParams, title }: { exportParams: string; 
   }
 }
 
-async function handleExportPptx({ exportParams, title }: { exportParams: string; title: string }) {
+async function handleExportPptx(args: any) {
   try {
+    const exportParams = args?.exportParams || args?.artifactId || '';
+    const title = args?.title || args?.artifactId || 'rin-slides';
+
     const res = await fetch('/api/export-pptx', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -156,7 +163,7 @@ async function handleExportPptx({ exportParams, title }: { exportParams: string;
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${(title || 'rin-slides').replace(/\.pptx$/i, '')}.pptx`;
+      a.download = `${title.replace(/\.pptx$/i, '')}.pptx`;
       document.body.appendChild(a);
       a.click();
       URL.revokeObjectURL(url);
@@ -172,6 +179,8 @@ function AssistantBubble({ content, isStreaming, onAction }: {
   isStreaming: boolean;
   onAction: (event: any) => void;
 }) {
+  // Guard: C1Component crashes if content is undefined or empty (can happen mid-export re-render)
+  if (!content) return null;
   return (
     <div style={{ display: 'flex', marginBottom: '20px' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -762,16 +771,56 @@ export default function DashboardPage() {
   // Handle interactive C1 UI actions (button clicks, form submits inside C1 components).
   // humanFriendlyMessage is shown in the chat bubble; llmFriendlyMessage is sent to the LLM.
   const handleC1Action = useCallback((event: any) => {
+    // Log the event in dev so we can inspect its shape
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[C1 Action event]', JSON.stringify(event, null, 2));
+    }
+
     if (event.type === 'open_url' && event.params?.url) {
       window.open(event.params.url, '_blank', 'noopener,noreferrer');
       return;
     }
+
+    const allText = (
+      (event.params?.llmFriendlyMessage ?? '') +
+      ' ' + (event.params?.humanFriendlyMessage ?? '') +
+      ' ' + (event.type ?? '')
+    ).toLowerCase();
+
+    // Detect slide/PPTX export intent from action text
+    const isSlideAction = allText.includes('pptx') || allText.includes('slide') ||
+                          allText.includes('presentation') || allText.includes('powerpoint');
+
+    // If the event carries exportParams, route directly to the export handler
+    if (event.params?.exportParams && isSlideAction) {
+      handleExportPptx(event.params);
+      return;
+    }
+    if (event.params?.exportParams && (allText.includes('pdf') || allText.includes('report'))) {
+      handleExportPdf(event.params);
+      return;
+    }
+
+    // If it's a slide download action WITHOUT exportParams (AI-generated action button),
+    // intercept it and inject a guide message with type='system' so it renders as a plain
+    // info box (not through C1Component which expects JSON DSL).
+    if (isSlideAction) {
+      setMessages(prev => [...prev, {
+        id: crypto.randomUUID(),
+        role: 'assistant' as const,
+        type: 'system' as const,
+        content: '📥 Your slide deck is ready! To save it to "Saved Reports & Slides", click the ⬇ download icon in the top-right corner of the slide viewer panel above, then choose "Download as PPTX". The file will download and automatically be saved to your drawer.',
+        isStreaming: false,
+      }]);
+      return;
+    }
+
     const { llmFriendlyMessage, humanFriendlyMessage } = event.params ?? {};
     if (llmFriendlyMessage) {
       // Display the short human label in chat; send the full context payload to the API
       sendMessage(humanFriendlyMessage || llmFriendlyMessage, llmFriendlyMessage);
     }
-  }, [sendMessage]);
+  }, [sendMessage, setMessages]);
 
   const isEmpty = messages.length === 0;
 
@@ -883,7 +932,27 @@ export default function DashboardPage() {
                   {messages.map(m =>
                     m.role === 'user'
                       ? <UserBubble key={m.id} content={m.content} />
-                      : <AssistantBubble key={m.id} content={m.content} isStreaming={m.isStreaming ?? false} onAction={handleC1Action} />
+                      : m.type === 'system'
+                        ? (
+                          <div key={m.id} style={{
+                            display: 'flex', marginBottom: '20px',
+                          }}>
+                            <div style={{
+                              flex: 1, minWidth: 0,
+                              background: 'rgba(128,5,50,0.05)',
+                              border: '1px solid rgba(128,5,50,0.15)',
+                              borderRadius: 12,
+                              padding: '12px 16px',
+                              fontSize: 13,
+                              color: 'rgb(26,25,25)',
+                              lineHeight: 1.6,
+                              fontFamily: "'DM Sans', system-ui, sans-serif",
+                            }}>
+                              {m.content}
+                            </div>
+                          </div>
+                        )
+                        : <AssistantBubble key={m.id} content={m.content} isStreaming={m.isStreaming ?? false} onAction={handleC1Action} />
                   )}
                   <div ref={bottomRef} />
                 </div>
