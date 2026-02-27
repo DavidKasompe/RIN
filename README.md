@@ -49,7 +49,7 @@ All powered by a dynamic AI agent that connects to the tools schools already use
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                 RIN Dashboard (Next.js 15 App Router)            │
+│                 RIN Dashboard (Next.js 16 App Router)            │
 ├────────────┬──────────────┬──────────────┬───────────────────────┤
 │  Landing   │  AI Chat     │  Students    │  Workflows Builder    │
 │  Page      │  Interface   │  Roster &    │  (React Flow)         │
@@ -208,8 +208,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 | Name                   | Role                          | GitHub                                                     |
 | ---------------------- | ----------------------------- | ---------------------------------------------------------- |
-| **Emmanuel Haankwenda** | Full-Stack Developer & AI Lead | [@emmanuelhaankwenda](https://github.com/emmanuelhaankwenda) |
-| **David Kasompe**       | Full-Stack Developer & Design  | [@DavidKasompe](https://github.com/DavidKasompe)           |
+| **Emmanuel Haankwenda** | Full-Stack Developer | [@emmanuelhaankwenda](https://github.com/emmanuelhaankwenda) |
+| **David Kasompe**       | Full-Stack Developer | [@DavidKasompe](https://github.com/DavidKasompe)           |
 
 ---
 
