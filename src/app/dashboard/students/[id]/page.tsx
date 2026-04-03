@@ -36,12 +36,17 @@ export default function StudentProfilePage() {
     const [student, setStudent] = useState<Student | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'results' | 'notes' | 'plagiarism'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'results' | 'notes' | 'plagiarism' | 'moodle'>('overview');
 
     // Plagiarism Tab Data
     const [plagiarismResults, setPlagiarismResults] = useState<any[]>([]);
     const [loadingPlagiarism, setLoadingPlagiarism] = useState(false);
     const plagiarismFetched = useRef(false);
+
+    // Moodle Tab Data
+    const [moodleData, setMoodleData] = useState<any | null>(null);
+    const [loadingMoodle, setLoadingMoodle] = useState(false);
+    const moodleFetched = useRef(false);
     const [documents, setDocuments] = useState<any[]>([]);
     const [loadingDocs, setLoadingDocs] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -98,6 +103,14 @@ export default function StudentProfilePage() {
                 .then(r => r.ok ? r.json() : { results: [] })
                 .then(data => { setPlagiarismResults(data.results || []); setLoadingPlagiarism(false); })
                 .catch(() => setLoadingPlagiarism(false));
+        }
+        if (activeTab === 'moodle' && !moodleFetched.current) {
+            moodleFetched.current = true;
+            setLoadingMoodle(true);
+            fetch(`/api/integrations/moodle/student?studentId=${id}`)
+                .then(r => r.ok ? r.json() : null)
+                .then(data => { setMoodleData(data); setLoadingMoodle(false); })
+                .catch(() => setLoadingMoodle(false));
         }
     }, [activeTab, id, documents.length, resultsData, notes.length, loadingNotes, plagiarismResults.length, loadingPlagiarism]);
 
@@ -287,6 +300,19 @@ export default function StudentProfilePage() {
                     }}
                 >
                     Plagiarism
+                </button>
+                <button
+                    onClick={() => setActiveTab('moodle')}
+                    style={{
+                        padding: '8px 16px', borderRadius: 9999, border: 'none', cursor: 'pointer',
+                        fontSize: 14, fontWeight: 600, fontFamily: 'inherit',
+                        backgroundColor: activeTab === 'moodle' ? '#F56705' : 'transparent',
+                        color: activeTab === 'moodle' ? 'white' : 'rgba(35,6,3,0.5)',
+                        transition: 'all 0.15s',
+                        display: 'flex', alignItems: 'center', gap: 6,
+                    }}
+                >
+                    🟠 Moodle
                 </button>
             </div>
 
@@ -744,6 +770,166 @@ export default function StudentProfilePage() {
                                     </div>
                                 );
                             })}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ── Moodle Tab ──────────────────────────────────────────── */}
+            {activeTab === 'moodle' && (
+                <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: 'rgba(245,103,5,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🟠</div>
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#230603' }}>Moodle LMS Data</h3>
+                            <p style={{ margin: 0, fontSize: 13, color: 'rgba(35,6,3,0.45)' }}>Live grades and assignments pulled from your Moodle instance</p>
+                        </div>
+                    </div>
+
+                    {loadingMoodle && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 64, gap: 10, color: 'rgba(35,6,3,0.4)', fontSize: 14 }}>
+                            <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Fetching Moodle data…
+                        </div>
+                    )}
+
+                    {!loadingMoodle && moodleData && !moodleData.linked && (
+                        <div style={{ textAlign: 'center', padding: '48px 24px', backgroundColor: 'white', borderRadius: 14, border: '1px solid rgba(35,6,3,0.06)' }}>
+                            <div style={{ fontSize: 36, marginBottom: 12 }}>🔗</div>
+                            <p style={{ fontWeight: 600, color: '#230603', margin: '0 0 6px', fontSize: 15 }}>Student not linked to Moodle</p>
+                            <p style={{ color: 'rgba(35,6,3,0.45)', fontSize: 14, margin: 0 }}>
+                                {moodleData.message ?? 'Sync students from the Integrations page to link their Moodle account.'}
+                            </p>
+                        </div>
+                    )}
+
+                    {!loadingMoodle && moodleData?.error && (
+                        <div style={{ padding: '14px 16px', backgroundColor: 'rgba(211,47,47,0.06)', borderRadius: 10, border: '1px solid rgba(211,47,47,0.15)', color: '#d32f2f', fontSize: 14 }}>
+                            ✕ {moodleData.error}
+                        </div>
+                    )}
+
+                    {!loadingMoodle && moodleData?.linked && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                            {/* Moodle ID pill */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 9999, backgroundColor: 'rgba(245,103,5,0.08)', color: '#c45200', border: '1px solid rgba(245,103,5,0.2)' }}>
+                                    Moodle ID: {moodleData.moodleUserId}
+                                </span>
+                                {moodleData.lastSyncedAt && (
+                                    <span style={{ fontSize: 12, color: 'rgba(35,6,3,0.4)' }}>
+                                        Last synced: {new Date(moodleData.lastSyncedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Grades section */}
+                            {Object.keys(moodleData.grades ?? {}).length > 0 ? (
+                                <div>
+                                    <h4 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700, color: '#230603', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.6 }}>Grades by Course</h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                        {Object.entries(moodleData.grades).map(([course, items]: [string, any]) => (
+                                            <div key={course} style={{ backgroundColor: 'white', borderRadius: 12, border: '1px solid rgba(35,6,3,0.07)', overflow: 'hidden' }}>
+                                                <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(35,6,3,0.05)', backgroundColor: 'rgba(245,103,5,0.03)' }}>
+                                                    <span style={{ fontSize: 14, fontWeight: 700, color: '#230603' }}>{course}</span>
+                                                </div>
+                                                <div style={{ overflowX: 'auto' }}>
+                                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                                                        <thead>
+                                                            <tr style={{ backgroundColor: 'rgba(35,6,3,0.02)' }}>
+                                                                <th style={{ textAlign: 'left', padding: '10px 16px', fontWeight: 600, color: 'rgba(35,6,3,0.5)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Item</th>
+                                                                <th style={{ textAlign: 'center', padding: '10px 16px', fontWeight: 600, color: 'rgba(35,6,3,0.5)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Grade</th>
+                                                                <th style={{ textAlign: 'center', padding: '10px 16px', fontWeight: 600, color: 'rgba(35,6,3,0.5)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>%</th>
+                                                                <th style={{ textAlign: 'left', padding: '10px 16px', fontWeight: 600, color: 'rgba(35,6,3,0.5)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Feedback</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {(items as any[]).map((g: any, i: number) => {
+                                                                const pct = g.graderaw != null && g.grademax
+                                                                    ? Math.round((g.graderaw / g.grademax) * 100)
+                                                                    : null;
+                                                                const isLow = pct != null && pct < 50;
+                                                                return (
+                                                                    <tr key={i} style={{ borderTop: '1px solid rgba(35,6,3,0.04)' }}>
+                                                                        <td style={{ padding: '10px 16px', color: '#230603', fontWeight: 500 }}>{g.itemname || '—'}</td>
+                                                                        <td style={{ padding: '10px 16px', textAlign: 'center', fontWeight: 700, color: isLow ? '#C0392B' : '#230603' }}>
+                                                                            {g.gradeformatted ?? '—'}
+                                                                        </td>
+                                                                        <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                                                                            {pct != null ? (
+                                                                                <span style={{ padding: '2px 8px', borderRadius: 9999, fontSize: 12, fontWeight: 700, backgroundColor: isLow ? 'rgba(192,57,43,0.08)' : 'rgba(5,128,80,0.08)', color: isLow ? '#C0392B' : '#058050' }}>
+                                                                                    {pct}%
+                                                                                </span>
+                                                                            ) : g.percentageformatted ?? '—'}
+                                                                        </td>
+                                                                        <td style={{ padding: '10px 16px', color: 'rgba(35,6,3,0.5)', fontSize: 12 }}>{g.feedback || '—'}</td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ padding: '20px 16px', backgroundColor: 'white', borderRadius: 12, border: '1px solid rgba(35,6,3,0.07)', color: 'rgba(35,6,3,0.4)', fontSize: 14, textAlign: 'center' }}>
+                                    No grade data found in Moodle for this student.
+                                </div>
+                            )}
+
+                            {/* Assignments section */}
+                            {(moodleData.assignments ?? []).length > 0 && (
+                                <div>
+                                    <h4 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700, color: '#230603', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.6 }}>Assignments</h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                        {(moodleData.assignments as any[]).map((a: any) => {
+                                            const overdue = a.dueDate && new Date(a.dueDate) < new Date() && a.submissionStatus !== 'submitted';
+                                            const statusColors: Record<string, { bg: string; text: string }> = {
+                                                submitted: { bg: 'rgba(5,128,80,0.08)', text: '#058050' },
+                                                notsubmitted: { bg: 'rgba(192,57,43,0.08)', text: '#C0392B' },
+                                                draft: { bg: 'rgba(251,191,36,0.12)', text: '#92610a' },
+                                                unknown: { bg: 'rgba(35,6,3,0.05)', text: 'rgba(35,6,3,0.45)' },
+                                            };
+                                            const sc = statusColors[a.submissionStatus] ?? statusColors.unknown;
+                                            return (
+                                                <div key={a.id} style={{ backgroundColor: 'white', borderRadius: 12, border: `1px solid ${overdue ? 'rgba(192,57,43,0.2)' : 'rgba(35,6,3,0.07)'}`, padding: '14px 16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontWeight: 600, fontSize: 14, color: '#230603', marginBottom: 4 }}>{a.name}</div>
+                                                        <div style={{ fontSize: 12, color: 'rgba(35,6,3,0.45)' }}>{a.course}</div>
+                                                        {a.dueDate && (
+                                                            <div style={{ fontSize: 12, marginTop: 4, color: overdue ? '#C0392B' : 'rgba(35,6,3,0.45)', fontWeight: overdue ? 600 : 400 }}>
+                                                                {overdue ? '⚠ Overdue · ' : 'Due: '}
+                                                                {new Date(a.dueDate).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                                                        <span style={{ padding: '3px 10px', borderRadius: 9999, fontSize: 12, fontWeight: 600, backgroundColor: sc.bg, color: sc.text }}>
+                                                            {a.submissionStatus === 'notsubmitted' ? 'Not submitted' : a.submissionStatus}
+                                                        </span>
+                                                        {a.grade != null && (
+                                                            <span style={{ fontSize: 12, fontWeight: 700, color: '#230603' }}>
+                                                                {a.grade} / {a.maxGrade ?? '?'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {!loadingMoodle && !moodleData && (
+                        <div style={{ textAlign: 'center', padding: '48px 24px', backgroundColor: 'white', borderRadius: 14, border: '1px solid rgba(35,6,3,0.06)' }}>
+                            <div style={{ fontSize: 36, marginBottom: 12 }}>⚡</div>
+                            <p style={{ fontWeight: 600, color: '#230603', margin: '0 0 6px', fontSize: 15 }}>Moodle not connected</p>
+                            <p style={{ color: 'rgba(35,6,3,0.45)', fontSize: 14, margin: 0 }}>
+                                Go to <strong>Integrations</strong> to connect your Moodle instance and sync students.
+                            </p>
                         </div>
                     )}
                 </div>

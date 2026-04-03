@@ -6,6 +6,14 @@ import { Link2, CheckCircle2, Loader2 } from 'lucide-react';
 import { ShimmerCard } from '@/components/shared/Shimmer';
 
 // ─── Moodle Integration Card ──────────────────────────────────────────────────
+interface SyncResult {
+    studentsImported: number;
+    studentsUpdated: number;
+    coursesScanned: number;
+    totalStudents: number;
+    message: string;
+}
+
 function MoodleCard() {
     const [connected, setConnected] = useState(false);
     const [moodleUrl, setMoodleUrl] = useState('');
@@ -15,6 +23,9 @@ function MoodleCard() {
     const [formToken, setFormToken] = useState('');
     const [saving, setSaving] = useState(false);
     const [disconnecting, setDisconnecting] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+    const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
+    const [syncError, setSyncError] = useState('');
     const [error, setError] = useState('');
     const [warning, setWarning] = useState('');
     const [hovered, setHovered] = useState(false);
@@ -64,9 +75,44 @@ function MoodleCard() {
             await fetch('/api/integrations/moodle', { method: 'DELETE' });
             setConnected(false);
             setMoodleUrl('');
+            setLastSynced(null);
+            setSyncResult(null);
+            setSyncError('');
+            setWarning('');
         } finally {
             setDisconnecting(false);
         }
+    };
+
+    const handleSync = async () => {
+        setSyncing(true);
+        setSyncError('');
+        setSyncResult(null);
+        try {
+            const res = await fetch('/api/integrations/moodle/sync', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                setSyncResult({
+                    studentsImported: data.studentsImported,
+                    studentsUpdated: data.studentsUpdated,
+                    coursesScanned: data.coursesScanned,
+                    totalStudents: data.totalStudents,
+                    message: data.message,
+                });
+                if (data.lastSyncedAt) setLastSynced(data.lastSyncedAt);
+            } else {
+                setSyncError(data.error || 'Sync failed. Please try again.');
+            }
+        } catch {
+            setSyncError('Network error during sync. Please try again.');
+        } finally {
+            setSyncing(false);
+        }
+    };
+
+    const formatSyncTime = (iso: string) => {
+        const d = new Date(iso);
+        return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
     };
 
     return (
@@ -87,17 +133,48 @@ function MoodleCard() {
                 Connect your institution's self-hosted Moodle instance to pull student grades, assignment submissions, and attendance records into RIN.
             </p>
 
+            {/* Connected: show URL pill + last sync info */}
             {connected && moodleUrl && (
-                <div style={{ padding: '8px 12px', backgroundColor: 'rgba(5,128,80,0.05)', border: '1px solid rgba(5,128,80,0.15)', borderRadius: 8, fontSize: 12, color: '#058050', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {moodleUrl}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ padding: '8px 12px', backgroundColor: 'rgba(5,128,80,0.05)', border: '1px solid rgba(5,128,80,0.15)', borderRadius: 8, fontSize: 12, color: '#058050', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {moodleUrl}
+                    </div>
+                    {lastSynced && (
+                        <div style={{ fontSize: 12, color: 'rgb(114,106,90)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Icon icon="lucide:clock" width={12} />
+                            Last synced: {formatSyncTime(lastSynced)}
+                        </div>
+                    )}
                 </div>
             )}
+
+            {/* Warning banner */}
             {warning && !showForm && (
                 <div style={{ fontSize: 12, color: '#92610a', padding: '8px 10px', backgroundColor: 'rgba(251,191,36,0.10)', borderRadius: 6, border: '1px solid rgba(251,191,36,0.3)', lineHeight: 1.4 }}>
                     ⚠ {warning}
                 </div>
             )}
 
+            {/* Sync result banner */}
+            {syncResult && (
+                <div style={{ fontSize: 12, color: '#058050', padding: '10px 12px', backgroundColor: 'rgba(5,128,80,0.05)', borderRadius: 8, border: '1px solid rgba(5,128,80,0.15)', lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>✓ Sync complete</div>
+                    <div style={{ display: 'flex', gap: 16 }}>
+                        <span><strong>{syncResult.studentsImported}</strong> imported</span>
+                        <span><strong>{syncResult.studentsUpdated}</strong> updated</span>
+                        <span><strong>{syncResult.coursesScanned}</strong> courses</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Sync error */}
+            {syncError && (
+                <div style={{ fontSize: 12, color: '#d32f2f', padding: '8px 10px', backgroundColor: 'rgba(211,47,47,0.06)', borderRadius: 6, border: '1px solid rgba(211,47,47,0.15)' }}>
+                    ✕ {syncError}
+                </div>
+            )}
+
+            {/* Connect form */}
             {showForm && !connected && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <input
@@ -118,6 +195,10 @@ function MoodleCard() {
                         onFocus={e => e.currentTarget.style.borderColor = '#800532'}
                         onBlur={e => e.currentTarget.style.borderColor = 'rgb(228,221,205)'}
                     />
+                    {/* Setup guide */}
+                    <div style={{ fontSize: 11, color: 'rgb(160,155,145)', lineHeight: 1.6, padding: '6px 0' }}>
+                        <strong>How to get your token:</strong> In Moodle, go to <em>Site Admin → Server → Web Services → Manage tokens</em> and create a token for an admin user.
+                    </div>
                     {error && <div style={{ fontSize: 12, color: '#d32f2f', padding: '8px 10px', backgroundColor: 'rgba(211,47,47,0.06)', borderRadius: 6 }}>{error}</div>}
                     {warning && <div style={{ fontSize: 12, color: '#92610a', padding: '8px 10px', backgroundColor: 'rgba(251,191,36,0.10)', borderRadius: 6, border: '1px solid rgba(251,191,36,0.3)' }}>⚠ {warning}</div>}
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -131,26 +212,48 @@ function MoodleCard() {
 
             <div style={{ marginTop: 'auto', paddingTop: showForm ? 0 : 8 }}>
                 {connected ? (
-                    <button
-                        className="rin-integration-btn-connected"
-                        onClick={handleDisconnect}
-                        onMouseEnter={() => setHovered(true)}
-                        onMouseLeave={() => setHovered(false)}
-                        disabled={disconnecting}
-                        style={{
-                            width: '100%', padding: '10px',
-                            backgroundColor: hovered ? 'rgba(220,38,38,0.06)' : 'rgba(5,128,80,0.08)',
-                            border: `1px solid ${hovered ? 'rgba(220,38,38,0.3)' : 'rgba(5,128,80,0.2)'}`,
-                            borderRadius: 8, fontSize: 14, fontWeight: 600,
-                            color: hovered ? '#dc2626' : '#058050',
-                            cursor: disconnecting ? 'wait' : 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                        }}
-                    >
-                        {disconnecting ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Disconnecting...</>
-                            : hovered ? <><Icon icon="lucide:unplug" width={16} /> Disconnect</>
-                            : <><CheckCircle2 size={16} /> Connected</>}
-                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {/* Sync button */}
+                        <button
+                            onClick={handleSync}
+                            disabled={syncing}
+                            style={{
+                                width: '100%', padding: '10px', borderRadius: 8,
+                                border: '1px solid rgba(245,103,5,0.25)',
+                                backgroundColor: syncing ? 'rgba(245,103,5,0.04)' : 'rgba(245,103,5,0.06)',
+                                fontSize: 13, fontWeight: 600, color: '#c45200',
+                                cursor: syncing ? 'wait' : 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                transition: 'all 0.2s',
+                            }}
+                        >
+                            {syncing
+                                ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Syncing students…</>
+                                : <><Icon icon="lucide:refresh-cw" width={14} /> Sync Students Now</>
+                            }
+                        </button>
+                        {/* Disconnect button */}
+                        <button
+                            className="rin-integration-btn-connected"
+                            onClick={handleDisconnect}
+                            onMouseEnter={() => setHovered(true)}
+                            onMouseLeave={() => setHovered(false)}
+                            disabled={disconnecting}
+                            style={{
+                                width: '100%', padding: '10px',
+                                backgroundColor: hovered ? 'rgba(220,38,38,0.06)' : 'rgba(5,128,80,0.08)',
+                                border: `1px solid ${hovered ? 'rgba(220,38,38,0.3)' : 'rgba(5,128,80,0.2)'}`,
+                                borderRadius: 8, fontSize: 14, fontWeight: 600,
+                                color: hovered ? '#dc2626' : '#058050',
+                                cursor: disconnecting ? 'wait' : 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                            }}
+                        >
+                            {disconnecting ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Disconnecting...</>
+                                : hovered ? <><Icon icon="lucide:unplug" width={16} /> Disconnect</>
+                                : <><CheckCircle2 size={16} /> Connected</>}
+                        </button>
+                    </div>
                 ) : !showForm ? (
                     <button
                         className="rin-integration-btn-connect"
