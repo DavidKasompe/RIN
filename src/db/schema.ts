@@ -5,6 +5,9 @@ export const schools = pgTable('schools', {
     id: text('id').primaryKey(), // We'll generate a unique ID like "sch_123"
     name: text('name').notNull(),
     inviteCode: text('invite_code').notNull().unique(), // e.g., "RIN-A1B2C3"
+    institutionType: text('institution_type').notNull().default('k12'), // 'k12' | 'university'
+    country: text('country'),
+    academicSystem: text('academic_system'), // 'semester' | 'trimester' | 'term'
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
@@ -16,7 +19,10 @@ export const users = pgTable('users', {
     email: text('email').notNull().unique(),
     emailVerified: boolean('email_verified').notNull().default(false),
     image: text('image'),
-    role: text('role').notNull().default('educator'), // educator | administrator | counselor
+    // K-12: 'educator' | 'counselor' | 'administrator'
+    // University: 'lecturer' | 'academic_advisor' | 'dean' | 'registrar' | 'administrator'
+    role: text('role').notNull().default('educator'),
+    institutionType: text('institution_type').default('k12'),
     schoolId: text('school_id').references(() => schools.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -70,6 +76,49 @@ export const verifications = pgTable('verifications', {
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+// ─── University: Faculties ────────────────────────────────────────────────────
+export const faculties = pgTable('faculties', {
+    id: text('id').primaryKey(),
+    schoolId: text('school_id').notNull().references(() => schools.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(), // e.g. "Faculty of Engineering"
+    code: text('code'), // e.g. "FENG"
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// ─── University: Departments ──────────────────────────────────────────────────
+export const departments = pgTable('departments', {
+    id: text('id').primaryKey(),
+    facultyId: text('faculty_id').notNull().references(() => faculties.id, { onDelete: 'cascade' }),
+    schoolId: text('school_id').notNull().references(() => schools.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(), // e.g. "Computer Science"
+    code: text('code'), // e.g. "CS"
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// ─── University: Programs ─────────────────────────────────────────────────────
+export const programs = pgTable('programs', {
+    id: text('id').primaryKey(),
+    departmentId: text('department_id').references(() => departments.id, { onDelete: 'set null' }),
+    schoolId: text('school_id').notNull().references(() => schools.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(), // e.g. "BSc Software Engineering"
+    code: text('code'), // e.g. "BSC-SE"
+    degreeType: text('degree_type'), // 'bachelors' | 'masters' | 'phd' | 'diploma' | 'certificate'
+    durationYears: integer('duration_years'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// ─── Student Cohorts (K-12 classes & University cohorts) ─────────────────────
+export const studentCohorts = pgTable('student_cohorts', {
+    id: text('id').primaryKey(),
+    schoolId: text('school_id').notNull().references(() => schools.id, { onDelete: 'cascade' }),
+    programId: text('program_id').references(() => programs.id, { onDelete: 'set null' }),
+    name: text('name').notNull(), // e.g. "2023 Intake" or "Grade 10A"
+    yearLevel: text('year_level'), // e.g. "Year 2" / "Grade 10" / "Level 200"
+    stream: text('stream'), // K-12: 'science' | 'arts' | 'commerce' | 'technical'
+    type: text('type').notNull().default('class'), // 'class' (k12) | 'cohort' (university)
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
 // ─── Students ────────────────────────────────────────────────────────────────
 export const students = pgTable('students', {
     id: text('id').primaryKey(),
@@ -105,6 +154,21 @@ export const students = pgTable('students', {
     lastRiskScore: real('last_risk_score'),
     lastRiskCategory: text('last_risk_category'), // Low | Moderate | At Risk | Critical
     lastAnalyzedAt: timestamp('last_analyzed_at'),
+
+    // Institution split fields
+    institutionType: text('institution_type').default('k12'),
+    cohortId: text('cohort_id').references(() => studentCohorts.id, { onDelete: 'set null' }),
+    programId: text('program_id').references(() => programs.id, { onDelete: 'set null' }),
+    facultyId: text('faculty_id').references(() => faculties.id, { onDelete: 'set null' }),
+    studentLevel: text('student_level'), // 'Year 1' / 'Level 100' / 'Grade 9'
+    stream: text('stream'), // K-12 stream e.g. 'science'
+    studyMode: text('study_mode'), // university: 'full-time' | 'part-time' | 'distance'
+    enrollmentStatus: text('enrollment_status').default('active'), // 'active' | 'deferred' | 'suspended' | 'graduated' | 'withdrawn'
+    matricNumber: text('matric_number'), // university student number
+
+    // Moodle linkage
+    moodleUserId: integer('moodle_user_id'),
+    moodleCourseIds: jsonb('moodle_course_ids').$type<number[]>().default([]),
 
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -282,3 +346,73 @@ export const earlyWarnings = pgTable("early_warnings", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// ─── Moodle Connections ───────────────────────────────────────────────────────
+export const moodleConnections = pgTable('moodle_connections', {
+    id: text('id').primaryKey(),
+    schoolId: text('school_id').notNull().references(() => schools.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    moodleUrl: text('moodle_url').notNull(),
+    moodleToken: text('moodle_token').notNull(), // stored; in production should be encrypted
+    lastSyncedAt: timestamp('last_synced_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// ─── Plagiarism Results ───────────────────────────────────────────────────────
+export const plagiarismResults = pgTable('plagiarism_results', {
+    id: text('id').primaryKey(),
+    schoolId: text('school_id').notNull().references(() => schools.id, { onDelete: 'cascade' }),
+    studentId: text('student_id').notNull().references(() => students.id, { onDelete: 'cascade' }),
+    assignmentId: text('assignment_id').notNull(), // Moodle assignment ID
+    submissionId: text('submission_id').notNull(), // Moodle submission ID
+    submissionText: text('submission_text').notNull(),
+    similarityScore: real('similarity_score').notNull(), // 0.0 – 1.0
+    flagged: boolean('flagged').notNull().default(false),
+    flagReason: text('flag_reason'), // 'peer_similarity' | 'self_plagiarism'
+    matchedSources: jsonb('matched_sources').$type<{ source: string; score: number; excerpt: string }[]>().default([]),
+    checkedAt: timestamp('checked_at').notNull().defaultNow(),
+    status: text('status').notNull().default('pending'), // 'pending' | 'clean' | 'flagged' | 'reviewed' | 'dismissed'
+    reviewedBy: text('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
+    reviewedAt: timestamp('reviewed_at'),
+});
+
+// ─── Timetable Slots ──────────────────────────────────────────────────────────
+export const timetableSlots = pgTable('timetable_slots', {
+    id: text('id').primaryKey(),
+    schoolId: text('school_id').notNull().references(() => schools.id, { onDelete: 'cascade' }),
+    dayOfWeek: integer('day_of_week').notNull(), // 0=Monday … 4=Friday
+    startTime: text('start_time').notNull(), // 'HH:MM'
+    endTime: text('end_time').notNull(), // 'HH:MM'
+    slotLabel: text('slot_label'), // 'Period 1' | 'Morning Lecture'
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// ─── Timetable Entries ────────────────────────────────────────────────────────
+export const timetableEntries = pgTable('timetable_entries', {
+    id: text('id').primaryKey(),
+    schoolId: text('school_id').notNull().references(() => schools.id, { onDelete: 'cascade' }),
+    slotId: text('slot_id').notNull().references(() => timetableSlots.id, { onDelete: 'cascade' }),
+    cohortId: text('cohort_id').references(() => studentCohorts.id, { onDelete: 'set null' }),
+    programId: text('program_id').references(() => programs.id, { onDelete: 'set null' }),
+    subject: text('subject').notNull(), // 'Mathematics' | 'CS101'
+    teacherId: text('teacher_id').references(() => users.id, { onDelete: 'set null' }),
+    room: text('room'),
+    location: text('location'),
+    // University-specific: room constraints (per coworker feedback)
+    classType: text('class_type'), // 'lecture' | 'lab' | 'tutorial' | 'seminar' | 'practical'
+    roomCapacity: integer('room_capacity'), // max students the room holds
+    studentCount: integer('student_count'), // expected number of students
+    recurring: boolean('recurring').default(true),
+    termStart: timestamp('term_start'),
+    termEnd: timestamp('term_end'),
+    googleEventId: text('google_event_id'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// ─── Student Timetables (individual overrides) ────────────────────────────────
+export const studentTimetables = pgTable('student_timetables', {
+    id: text('id').primaryKey(),
+    studentId: text('student_id').notNull().references(() => students.id, { onDelete: 'cascade' }),
+    timetableEntryId: text('timetable_entry_id').references(() => timetableEntries.id, { onDelete: 'cascade' }),
+    enrolled: boolean('enrolled').default(true),
+    notes: text('notes'),
+});

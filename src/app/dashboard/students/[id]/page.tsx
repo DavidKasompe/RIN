@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Message2, Chart2, DocumentText, Trash } from 'iconsax-reactjs';
@@ -36,7 +36,12 @@ export default function StudentProfilePage() {
     const [student, setStudent] = useState<Student | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'results' | 'notes'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'results' | 'notes' | 'plagiarism'>('overview');
+
+    // Plagiarism Tab Data
+    const [plagiarismResults, setPlagiarismResults] = useState<any[]>([]);
+    const [loadingPlagiarism, setLoadingPlagiarism] = useState(false);
+    const plagiarismFetched = useRef(false);
     const [documents, setDocuments] = useState<any[]>([]);
     const [loadingDocs, setLoadingDocs] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -86,7 +91,15 @@ export default function StudentProfilePage() {
                 .then(data => { setNotes(data.notes || []); setLoadingNotes(false); })
                 .catch(() => setLoadingNotes(false));
         }
-    }, [activeTab, id, documents.length, resultsData, notes.length, loadingNotes]);
+        if (activeTab === 'plagiarism' && !plagiarismFetched.current) {
+            plagiarismFetched.current = true;
+            setLoadingPlagiarism(true);
+            fetch(`/api/plagiarism/check?studentId=${id}`)
+                .then(r => r.ok ? r.json() : { results: [] })
+                .then(data => { setPlagiarismResults(data.results || []); setLoadingPlagiarism(false); })
+                .catch(() => setLoadingPlagiarism(false));
+        }
+    }, [activeTab, id, documents.length, resultsData, notes.length, loadingNotes, plagiarismResults.length, loadingPlagiarism]);
 
     const handleUpload = async (file: File) => {
         setUploading(true);
@@ -262,6 +275,18 @@ export default function StudentProfilePage() {
                     }}
                 >
                     Notes
+                </button>
+                <button
+                    onClick={() => setActiveTab('plagiarism')}
+                    style={{
+                        padding: '8px 16px', borderRadius: 9999, border: 'none', cursor: 'pointer',
+                        fontSize: 14, fontWeight: 600, fontFamily: 'inherit',
+                        backgroundColor: activeTab === 'plagiarism' ? '#800532' : 'transparent',
+                        color: activeTab === 'plagiarism' ? 'white' : 'rgba(35,6,3,0.5)',
+                        transition: 'all 0.15s'
+                    }}
+                >
+                    Plagiarism
                 </button>
             </div>
 
@@ -616,6 +641,111 @@ export default function StudentProfilePage() {
                             </div>
                         )}
                     </div>
+                </div>
+            )}
+
+            {/* ── Plagiarism Tab ──────────────────────────────────────── */}
+            {activeTab === 'plagiarism' && (
+                <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#230603', letterSpacing: '-0.3px' }}>Plagiarism Detection</h3>
+                            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'rgb(114,106,90)' }}>Submission similarity checks using semantic analysis</p>
+                        </div>
+                    </div>
+
+                    {loadingPlagiarism ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 24, color: 'rgb(114,106,90)', fontSize: 14 }}>
+                            <Loader2 size={16} className="animate-spin" /> Loading plagiarism records...
+                        </div>
+                    ) : plagiarismResults.length === 0 ? (
+                        <div style={{ padding: '48px 24px', textAlign: 'center', backgroundColor: 'white', borderRadius: 14, border: '1px solid rgba(35,6,3,0.07)' }}>
+                            <div style={{ fontSize: 32, marginBottom: 12 }}>✅</div>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: '#230603', marginBottom: 6 }}>No plagiarism checks yet</div>
+                            <div style={{ fontSize: 13, color: 'rgb(114,106,90)', lineHeight: 1.5 }}>
+                                Plagiarism checks run automatically when assignment submissions are synced from Moodle.
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            {plagiarismResults.map((result: any) => {
+                                const pct = Math.round((result.similarityScore ?? 0) * 100);
+                                const isFlagged = result.flagged;
+                                const statusColors: Record<string, { bg: string; text: string; border: string }> = {
+                                    clean: { bg: 'rgba(5,128,80,0.06)', text: '#058050', border: 'rgba(5,128,80,0.2)' },
+                                    flagged: { bg: 'rgba(192,57,43,0.06)', text: '#C0392B', border: 'rgba(192,57,43,0.2)' },
+                                    reviewed: { bg: 'rgba(41,128,185,0.06)', text: '#2980B9', border: 'rgba(41,128,185,0.2)' },
+                                    dismissed: { bg: 'rgba(114,106,90,0.06)', text: 'rgb(114,106,90)', border: 'rgba(114,106,90,0.2)' },
+                                    pending: { bg: 'rgba(230,126,34,0.06)', text: '#E67E22', border: 'rgba(230,126,34,0.2)' },
+                                };
+                                const sc = statusColors[result.status] ?? statusColors.pending;
+
+                                return (
+                                    <div key={result.id} style={{ backgroundColor: 'white', borderRadius: 14, border: `1px solid ${isFlagged ? 'rgba(192,57,43,0.15)' : 'rgba(35,6,3,0.07)'}`, padding: 20 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                                            <div>
+                                                <div style={{ fontSize: 14, fontWeight: 600, color: '#230603' }}>Assignment: {result.assignmentId}</div>
+                                                <div style={{ fontSize: 12, color: 'rgb(114,106,90)', marginTop: 2 }}>
+                                                    Checked {new Date(result.checkedAt).toLocaleDateString()}
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                {/* Similarity score pill */}
+                                                <div style={{ padding: '4px 12px', borderRadius: 9999, fontSize: 13, fontWeight: 700, backgroundColor: isFlagged ? 'rgba(192,57,43,0.1)' : 'rgba(5,128,80,0.08)', color: isFlagged ? '#C0392B' : '#058050' }}>
+                                                    {pct}% match
+                                                </div>
+                                                {/* Status badge */}
+                                                <div style={{ padding: '4px 10px', borderRadius: 9999, fontSize: 12, fontWeight: 600, backgroundColor: sc.bg, color: sc.text, border: `1px solid ${sc.border}`, textTransform: 'capitalize' }}>
+                                                    {result.status}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Matched sources */}
+                                        {result.matchedSources && result.matchedSources.length > 0 && (
+                                            <div style={{ marginBottom: 14 }}>
+                                                <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(35,6,3,0.5)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.4 }}>Matched Sources</div>
+                                                {result.matchedSources.map((m: any, i: number) => (
+                                                    <div key={i} style={{ padding: '10px 14px', backgroundColor: 'rgba(192,57,43,0.04)', borderRadius: 8, border: '1px solid rgba(192,57,43,0.1)', marginBottom: 6 }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                            <span style={{ fontSize: 13, fontWeight: 600, color: '#C0392B' }}>{m.source}</span>
+                                                            <span style={{ fontSize: 12, fontWeight: 700, color: '#C0392B' }}>{Math.round(m.score * 100)}%</span>
+                                                        </div>
+                                                        {m.excerpt && <p style={{ margin: 0, fontSize: 12, color: 'rgb(114,106,90)', lineHeight: 1.5, fontStyle: 'italic' }}>"{m.excerpt}..."</p>}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Action buttons */}
+                                        {(result.status === 'flagged' || result.status === 'pending') && (
+                                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                                {[
+                                                    { label: 'Mark Reviewed', status: 'reviewed', color: '#2980B9', bg: 'rgba(41,128,185,0.08)', border: 'rgba(41,128,185,0.2)' },
+                                                    { label: 'Dismiss Flag', status: 'dismissed', color: 'rgb(114,106,90)', bg: 'rgba(114,106,90,0.06)', border: 'rgba(114,106,90,0.2)' },
+                                                ].map(action => (
+                                                    <button
+                                                        key={action.status}
+                                                        onClick={async () => {
+                                                            await fetch('/api/plagiarism/check', {
+                                                                method: 'PATCH',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ resultId: result.id, status: action.status }),
+                                                            });
+                                                            setPlagiarismResults(prev => prev.map(r => r.id === result.id ? { ...r, status: action.status } : r));
+                                                        }}
+                                                        style={{ padding: '7px 14px', borderRadius: 8, border: `1px solid ${action.border}`, backgroundColor: action.bg, fontSize: 13, fontWeight: 600, color: action.color, cursor: 'pointer' }}
+                                                    >
+                                                        {action.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             )}
         </div>

@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/db';
-import { schools, users } from '@/db/schema';
+import { schools, users, userSchools } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
@@ -44,13 +44,13 @@ export async function getTeamDetailsAction() {
 
         // 4. Find all workspaces the current user is part of
         const userWorkspaces = await db.select({
-            id: require('@/db/schema').schools.id,
-            name: require('@/db/schema').schools.name,
-            role: require('@/db/schema').userSchools.role,
+            id: schools.id,
+            name: schools.name,
+            role: userSchools.role,
         })
-        .from(require('@/db/schema').userSchools)
-        .innerJoin(require('@/db/schema').schools, eq(require('@/db/schema').userSchools.schoolId, require('@/db/schema').schools.id))
-        .where(eq(require('@/db/schema').userSchools.userId, session.user.id));
+        .from(userSchools)
+        .innerJoin(schools, eq(userSchools.schoolId, schools.id))
+        .where(eq(userSchools.userId, session.user.id));
 
         return {
             success: true,

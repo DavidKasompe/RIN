@@ -5,6 +5,157 @@ import { Icon } from '@iconify/react';
 import { Link2, CheckCircle2, Loader2 } from 'lucide-react';
 import { ShimmerCard } from '@/components/shared/Shimmer';
 
+// ─── Moodle Integration Card ──────────────────────────────────────────────────
+function MoodleCard() {
+    const [connected, setConnected] = useState(false);
+    const [moodleUrl, setMoodleUrl] = useState('');
+    const [lastSynced, setLastSynced] = useState<string | null>(null);
+    const [showForm, setShowForm] = useState(false);
+    const [formUrl, setFormUrl] = useState('');
+    const [formToken, setFormToken] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [disconnecting, setDisconnecting] = useState(false);
+    const [error, setError] = useState('');
+    const [hovered, setHovered] = useState(false);
+
+    useEffect(() => {
+        fetch('/api/integrations/moodle')
+            .then(r => r.json())
+            .then(d => {
+                setConnected(d.connected);
+                if (d.moodleUrl) setMoodleUrl(d.moodleUrl);
+                if (d.lastSyncedAt) setLastSynced(d.lastSyncedAt);
+            })
+            .catch(() => {});
+    }, []);
+
+    const handleSave = async () => {
+        setError('');
+        setSaving(true);
+        try {
+            const res = await fetch('/api/integrations/moodle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ moodleUrl: formUrl, moodleToken: formToken }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setConnected(true);
+                setMoodleUrl(formUrl);
+                setShowForm(false);
+                setFormUrl('');
+                setFormToken('');
+            } else {
+                setError(data.error || 'Connection failed.');
+            }
+        } catch {
+            setError('Network error. Please try again.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDisconnect = async () => {
+        setDisconnecting(true);
+        try {
+            await fetch('/api/integrations/moodle', { method: 'DELETE' });
+            setConnected(false);
+            setMoodleUrl('');
+        } finally {
+            setDisconnecting(false);
+        }
+    };
+
+    return (
+        <div style={{ backgroundColor: 'white', borderRadius: 14, border: '1px solid rgb(228,221,205)', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: 'rgba(245,103,5,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon icon="simple-icons:moodle" width={28} height={28} style={{ color: '#F56705' }} />
+                    </div>
+                    <div>
+                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'rgb(26,25,25)' }}>Moodle LMS</h3>
+                        <p style={{ margin: 0, fontSize: 13, color: 'rgb(114,106,90)' }}>Grades, Assignments & Attendance</p>
+                    </div>
+                </div>
+            </div>
+
+            <p style={{ margin: 0, fontSize: 14, color: 'rgb(114,106,90)', lineHeight: 1.5 }}>
+                Connect your institution's self-hosted Moodle instance to pull student grades, assignment submissions, and attendance records into RIN.
+            </p>
+
+            {connected && moodleUrl && (
+                <div style={{ padding: '8px 12px', backgroundColor: 'rgba(5,128,80,0.05)', border: '1px solid rgba(5,128,80,0.15)', borderRadius: 8, fontSize: 12, color: '#058050', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {moodleUrl}
+                </div>
+            )}
+
+            {showForm && !connected && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <input
+                        type="url"
+                        placeholder="Moodle URL (e.g. https://moodle.myschool.edu)"
+                        value={formUrl}
+                        onChange={e => setFormUrl(e.target.value)}
+                        style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgb(228,221,205)', fontSize: 14, outline: 'none', fontFamily: 'inherit' }}
+                        onFocus={e => e.currentTarget.style.borderColor = '#800532'}
+                        onBlur={e => e.currentTarget.style.borderColor = 'rgb(228,221,205)'}
+                    />
+                    <input
+                        type="password"
+                        placeholder="Web Service Token"
+                        value={formToken}
+                        onChange={e => setFormToken(e.target.value)}
+                        style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgb(228,221,205)', fontSize: 14, outline: 'none', fontFamily: 'inherit' }}
+                        onFocus={e => e.currentTarget.style.borderColor = '#800532'}
+                        onBlur={e => e.currentTarget.style.borderColor = 'rgb(228,221,205)'}
+                    />
+                    {error && <div style={{ fontSize: 12, color: '#d32f2f', padding: '8px 10px', backgroundColor: 'rgba(211,47,47,0.06)', borderRadius: 6 }}>{error}</div>}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => { setShowForm(false); setError(''); }} style={{ flex: 1, padding: '9px', borderRadius: 8, border: '1px solid rgb(228,221,205)', backgroundColor: 'white', fontSize: 13, fontWeight: 600, color: 'rgb(114,106,90)', cursor: 'pointer' }}>Cancel</button>
+                        <button onClick={handleSave} disabled={saving || !formUrl || !formToken} style={{ flex: 2, padding: '9px', borderRadius: 8, border: 'none', backgroundColor: '#800532', fontSize: 13, fontWeight: 600, color: 'white', cursor: saving ? 'wait' : 'pointer', opacity: saving || !formUrl || !formToken ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                            {saving ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Connecting...</> : 'Connect'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <div style={{ marginTop: 'auto', paddingTop: showForm ? 0 : 8 }}>
+                {connected ? (
+                    <button
+                        className="rin-integration-btn-connected"
+                        onClick={handleDisconnect}
+                        onMouseEnter={() => setHovered(true)}
+                        onMouseLeave={() => setHovered(false)}
+                        disabled={disconnecting}
+                        style={{
+                            width: '100%', padding: '10px',
+                            backgroundColor: hovered ? 'rgba(220,38,38,0.06)' : 'rgba(5,128,80,0.08)',
+                            border: `1px solid ${hovered ? 'rgba(220,38,38,0.3)' : 'rgba(5,128,80,0.2)'}`,
+                            borderRadius: 8, fontSize: 14, fontWeight: 600,
+                            color: hovered ? '#dc2626' : '#058050',
+                            cursor: disconnecting ? 'wait' : 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        }}
+                    >
+                        {disconnecting ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Disconnecting...</>
+                            : hovered ? <><Icon icon="lucide:unplug" width={16} /> Disconnect</>
+                            : <><CheckCircle2 size={16} /> Connected</>}
+                    </button>
+                ) : !showForm ? (
+                    <button
+                        className="rin-integration-btn-connect"
+                        onClick={() => setShowForm(true)}
+                        style={{ width: '100%', padding: '10px', backgroundColor: 'white', border: '1px solid rgb(228,221,205)', borderRadius: 8, fontSize: 14, fontWeight: 600, color: '#800532', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                    >
+                        <Link2 size={16} /> Connect Moodle
+                    </button>
+                ) : null}
+            </div>
+        </div>
+    );
+}
+
 interface Toolkit {
     id: string;
     slug: string;
@@ -135,12 +286,14 @@ export default function IntegrationsPage() {
 
             {isFetching ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
-                    {Array.from({ length: 11 }).map((_, i) => (
+                    {Array.from({ length: 12 }).map((_, i) => (
                         <ShimmerCard key={i} hasIcon lines={2} style={{ height: 210, justifyContent: 'space-between' }} />
                     ))}
                 </div>
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
+                    {/* Moodle — custom card with token-based auth */}
+                    <MoodleCard />
                     {PREFERRED_TOOLKITS.map((tk) => {
                         const composioData = toolkits[tk.slug];
                         const isConnected = composioData?.isConnected || false;
