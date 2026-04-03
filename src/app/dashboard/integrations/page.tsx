@@ -151,8 +151,8 @@ function MoodleCard() {
                         onFocus={e => e.currentTarget.style.borderColor = '#800532'}
                         onBlur={e => e.currentTarget.style.borderColor = 'rgb(228,221,205)'}
                     />
-                    {error && <div style={{ fontSize: 12, color: '#d32f2f', padding: '8px 10px', backgroundColor: 'rgba(211,47,47,0.06)', borderRadius: 6 }}>{error}</div>}
-                    {warning && <div style={{ fontSize: 12, color: '#92610a', padding: '8px 10px', backgroundColor: 'rgba(251,191,36,0.10)', borderRadius: 6, border: '1px solid rgba(251,191,36,0.3)' }}>⚠ {warning}</div>}
+                    {error && <div style={{ fontSize: 12, color: '#d32f2f', padding: '8px 10px', backgroundColor: 'rgba(211,47,47,0.06)', borderRadius: 6, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{error}</div>}
+                    {warning && <div style={{ fontSize: 12, color: '#92610a', padding: '8px 10px', backgroundColor: 'rgba(251,191,36,0.10)', borderRadius: 6, border: '1px solid rgba(251,191,36,0.3)', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>⚠ {warning}</div>}
                     <div style={{ display: 'flex', gap: 8 }}>
                         <button onClick={() => { setShowForm(false); setError(''); }} style={{ flex: 1, padding: '9px', borderRadius: 8, border: '1px solid rgb(228,221,205)', backgroundColor: 'white', fontSize: 13, fontWeight: 600, color: 'rgb(114,106,90)', cursor: 'pointer' }}>Cancel</button>
                         <button onClick={handleSave} disabled={saving || !formUrl || !formToken} style={{ flex: 2, padding: '9px', borderRadius: 8, border: 'none', backgroundColor: '#800532', fontSize: 13, fontWeight: 600, color: 'white', cursor: saving ? 'wait' : 'pointer', opacity: saving || !formUrl || !formToken ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
@@ -193,7 +193,7 @@ function MoodleCard() {
                             </div>
                         )}
                         {syncError && (
-                            <div style={{ fontSize: 12, color: '#d32f2f', padding: '8px 10px', backgroundColor: 'rgba(211,47,47,0.06)', borderRadius: 6 }}>
+                            <div style={{ fontSize: 12, color: '#d32f2f', padding: '8px 10px', backgroundColor: 'rgba(211,47,47,0.06)', borderRadius: 6, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                                 {syncError}
                             </div>
                         )}
