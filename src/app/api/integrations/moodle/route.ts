@@ -51,6 +51,8 @@ export async function POST(req: NextRequest) {
         }
 
         // Validate the token by hitting the Moodle API
+        // If the URL is unreachable (network error) we save anyway with a warning.
+        // Only hard-reject if Moodle explicitly refuses the token.
         const testParams = new URLSearchParams({
             wstoken: moodleToken,
             wsfunction: 'core_webservice_get_site_info',
@@ -58,14 +60,25 @@ export async function POST(req: NextRequest) {
         });
 
         let siteInfo: any = null;
+        let validationWarning: string | null = null;
+
         try {
-            const testRes = await fetch(`${moodleUrl.replace(/\/$/, '')}/webservice/rest/server.php?${testParams}`);
+            const testRes = await fetch(
+                `${moodleUrl.replace(/\/$/, '')}/webservice/rest/server.php?${testParams}`,
+                { signal: AbortSignal.timeout(8000) }
+            );
             siteInfo = await testRes.json();
+            // Moodle returned a hard token error — reject immediately
             if (siteInfo?.exception) {
-                return NextResponse.json({ error: `Moodle rejected the token: ${siteInfo.message}` }, { status: 400 });
+                return NextResponse.json(
+                    { error: `Moodle rejected the token: ${siteInfo.message}` },
+                    { status: 400 }
+                );
             }
         } catch {
-            return NextResponse.json({ error: 'Could not reach the Moodle URL. Check it is correct and accessible.' }, { status: 400 });
+            // Network error — URL may be internal/firewalled. Save credentials anyway
+            // and warn the user — sync will be attempted when tools are actually called.
+            validationWarning = 'Moodle URL could not be reached right now. Credentials saved — they will be used when syncing student data.';
         }
 
         // Upsert connection
@@ -90,7 +103,11 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        return NextResponse.json({ success: true, siteName: siteInfo?.sitename });
+        return NextResponse.json({
+            success: true,
+            siteName: siteInfo?.sitename ?? null,
+            warning: validationWarning,
+        });
     } catch (err) {
         console.error('POST /api/integrations/moodle error:', err);
         return NextResponse.json({ error: 'Server error' }, { status: 500 });
