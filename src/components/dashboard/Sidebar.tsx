@@ -16,11 +16,13 @@ import {
     Add,
     LogoutCurve,
     Check,
+    TableDocument,
 } from 'iconsax-reactjs';
 
 const NAV_ITEMS = [
     { href: '/dashboard/students', label: 'Students', Icon: People },
     { href: '/dashboard/overview', label: 'Overview', Icon: Chart2 },
+    { href: '/dashboard/timetable', label: 'Timetable', Icon: TableDocument },
     { href: '/dashboard/calendar', label: 'Calendar', Icon: Calendar },
     { href: '/dashboard/workflows', label: 'Workflows', Icon: Diagram },
     { href: '/dashboard/integrations', label: 'Integrations', Icon: Category },

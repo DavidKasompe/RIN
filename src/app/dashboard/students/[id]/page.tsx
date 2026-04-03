@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Message2, Chart2, DocumentText, Trash } from 'iconsax-reactjs';
@@ -36,7 +36,17 @@ export default function StudentProfilePage() {
     const [student, setStudent] = useState<Student | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'results' | 'notes'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'results' | 'notes' | 'plagiarism' | 'moodle'>('overview');
+
+    // Moodle Tab Data
+    const [moodleData, setMoodleData] = useState<any | null>(null);
+    const [loadingMoodle, setLoadingMoodle] = useState(false);
+    const moodleFetched = useRef(false);
+
+    // Plagiarism Tab Data
+    const [plagiarismResults, setPlagiarismResults] = useState<any[]>([]);
+    const [loadingPlagiarism, setLoadingPlagiarism] = useState(false);
+    const plagiarismFetched = useRef(false);
     const [documents, setDocuments] = useState<any[]>([]);
     const [loadingDocs, setLoadingDocs] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -86,7 +96,23 @@ export default function StudentProfilePage() {
                 .then(data => { setNotes(data.notes || []); setLoadingNotes(false); })
                 .catch(() => setLoadingNotes(false));
         }
-    }, [activeTab, id, documents.length, resultsData, notes.length, loadingNotes]);
+        if (activeTab === 'plagiarism' && !plagiarismFetched.current) {
+            plagiarismFetched.current = true;
+            setLoadingPlagiarism(true);
+            fetch(`/api/plagiarism/check?studentId=${id}`)
+                .then(r => r.ok ? r.json() : { results: [] })
+                .then(data => { setPlagiarismResults(data.results || []); setLoadingPlagiarism(false); })
+                .catch(() => setLoadingPlagiarism(false));
+        }
+        if (activeTab === 'moodle' && !moodleFetched.current) {
+            moodleFetched.current = true;
+            setLoadingMoodle(true);
+            fetch(`/api/integrations/moodle/student?studentId=${id}`)
+                .then(r => r.ok ? r.json() : null)
+                .then(data => { setMoodleData(data); setLoadingMoodle(false); })
+                .catch(() => setLoadingMoodle(false));
+        }
+    }, [activeTab, id, documents.length, resultsData, notes.length, loadingNotes, plagiarismResults.length, loadingPlagiarism]);
 
     const handleUpload = async (file: File) => {
         setUploading(true);
@@ -262,6 +288,30 @@ export default function StudentProfilePage() {
                     }}
                 >
                     Notes
+                </button>
+                <button
+                    onClick={() => setActiveTab('plagiarism')}
+                    style={{
+                        padding: '8px 16px', borderRadius: 9999, border: 'none', cursor: 'pointer',
+                        fontSize: 14, fontWeight: 600, fontFamily: 'inherit',
+                        backgroundColor: activeTab === 'plagiarism' ? '#800532' : 'transparent',
+                        color: activeTab === 'plagiarism' ? 'white' : 'rgba(35,6,3,0.5)',
+                        transition: 'all 0.15s'
+                    }}
+                >
+                    Plagiarism
+                </button>
+                <button
+                    onClick={() => setActiveTab('moodle')}
+                    style={{
+                        padding: '8px 16px', borderRadius: 9999, border: 'none', cursor: 'pointer',
+                        fontSize: 14, fontWeight: 600, fontFamily: 'inherit',
+                        backgroundColor: activeTab === 'moodle' ? '#F56705' : 'transparent',
+                        color: activeTab === 'moodle' ? 'white' : 'rgba(35,6,3,0.5)',
+                        transition: 'all 0.15s'
+                    }}
+                >
+                    🟠 Moodle
                 </button>
             </div>
 
@@ -616,6 +666,231 @@ export default function StudentProfilePage() {
                             </div>
                         )}
                     </div>
+                </div>
+            )}
+
+            {/* ── Plagiarism Tab ──────────────────────────────────────── */}
+            {activeTab === 'plagiarism' && (
+                <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#230603', letterSpacing: '-0.3px' }}>Plagiarism Detection</h3>
+                            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'rgb(114,106,90)' }}>Submission similarity checks using semantic analysis</p>
+                        </div>
+                    </div>
+
+                    {loadingPlagiarism ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 24, color: 'rgb(114,106,90)', fontSize: 14 }}>
+                            <Loader2 size={16} className="animate-spin" /> Loading plagiarism records...
+                        </div>
+                    ) : plagiarismResults.length === 0 ? (
+                        <div style={{ padding: '48px 24px', textAlign: 'center', backgroundColor: 'white', borderRadius: 14, border: '1px solid rgba(35,6,3,0.07)' }}>
+                            <div style={{ fontSize: 32, marginBottom: 12 }}>✅</div>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: '#230603', marginBottom: 6 }}>No plagiarism checks yet</div>
+                            <div style={{ fontSize: 13, color: 'rgb(114,106,90)', lineHeight: 1.5 }}>
+                                Plagiarism checks run automatically when assignment submissions are synced from Moodle.
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            {plagiarismResults.map((result: any) => {
+                                const pct = Math.round((result.similarityScore ?? 0) * 100);
+                                const isFlagged = result.flagged;
+                                const statusColors: Record<string, { bg: string; text: string; border: string }> = {
+                                    clean: { bg: 'rgba(5,128,80,0.06)', text: '#058050', border: 'rgba(5,128,80,0.2)' },
+                                    flagged: { bg: 'rgba(192,57,43,0.06)', text: '#C0392B', border: 'rgba(192,57,43,0.2)' },
+                                    reviewed: { bg: 'rgba(41,128,185,0.06)', text: '#2980B9', border: 'rgba(41,128,185,0.2)' },
+                                    dismissed: { bg: 'rgba(114,106,90,0.06)', text: 'rgb(114,106,90)', border: 'rgba(114,106,90,0.2)' },
+                                    pending: { bg: 'rgba(230,126,34,0.06)', text: '#E67E22', border: 'rgba(230,126,34,0.2)' },
+                                };
+                                const sc = statusColors[result.status] ?? statusColors.pending;
+
+                                return (
+                                    <div key={result.id} style={{ backgroundColor: 'white', borderRadius: 14, border: `1px solid ${isFlagged ? 'rgba(192,57,43,0.15)' : 'rgba(35,6,3,0.07)'}`, padding: 20 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                                            <div>
+                                                <div style={{ fontSize: 14, fontWeight: 600, color: '#230603' }}>Assignment: {result.assignmentId}</div>
+                                                <div style={{ fontSize: 12, color: 'rgb(114,106,90)', marginTop: 2 }}>
+                                                    Checked {new Date(result.checkedAt).toLocaleDateString()}
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                {/* Similarity score pill */}
+                                                <div style={{ padding: '4px 12px', borderRadius: 9999, fontSize: 13, fontWeight: 700, backgroundColor: isFlagged ? 'rgba(192,57,43,0.1)' : 'rgba(5,128,80,0.08)', color: isFlagged ? '#C0392B' : '#058050' }}>
+                                                    {pct}% match
+                                                </div>
+                                                {/* Status badge */}
+                                                <div style={{ padding: '4px 10px', borderRadius: 9999, fontSize: 12, fontWeight: 600, backgroundColor: sc.bg, color: sc.text, border: `1px solid ${sc.border}`, textTransform: 'capitalize' }}>
+                                                    {result.status}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Matched sources */}
+                                        {result.matchedSources && result.matchedSources.length > 0 && (
+                                            <div style={{ marginBottom: 14 }}>
+                                                <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(35,6,3,0.5)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.4 }}>Matched Sources</div>
+                                                {result.matchedSources.map((m: any, i: number) => (
+                                                    <div key={i} style={{ padding: '10px 14px', backgroundColor: 'rgba(192,57,43,0.04)', borderRadius: 8, border: '1px solid rgba(192,57,43,0.1)', marginBottom: 6 }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                            <span style={{ fontSize: 13, fontWeight: 600, color: '#C0392B' }}>{m.source}</span>
+                                                            <span style={{ fontSize: 12, fontWeight: 700, color: '#C0392B' }}>{Math.round(m.score * 100)}%</span>
+                                                        </div>
+                                                        {m.excerpt && <p style={{ margin: 0, fontSize: 12, color: 'rgb(114,106,90)', lineHeight: 1.5, fontStyle: 'italic' }}>"{m.excerpt}..."</p>}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Action buttons */}
+                                        {(result.status === 'flagged' || result.status === 'pending') && (
+                                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                                {[
+                                                    { label: 'Mark Reviewed', status: 'reviewed', color: '#2980B9', bg: 'rgba(41,128,185,0.08)', border: 'rgba(41,128,185,0.2)' },
+                                                    { label: 'Dismiss Flag', status: 'dismissed', color: 'rgb(114,106,90)', bg: 'rgba(114,106,90,0.06)', border: 'rgba(114,106,90,0.2)' },
+                                                ].map(action => (
+                                                    <button
+                                                        key={action.status}
+                                                        onClick={async () => {
+                                                            await fetch('/api/plagiarism/check', {
+                                                                method: 'PATCH',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ resultId: result.id, status: action.status }),
+                                                            });
+                                                            setPlagiarismResults(prev => prev.map(r => r.id === result.id ? { ...r, status: action.status } : r));
+                                                        }}
+                                                        style={{ padding: '7px 14px', borderRadius: 8, border: `1px solid ${action.border}`, backgroundColor: action.bg, fontSize: 13, fontWeight: 600, color: action.color, cursor: 'pointer' }}
+                                                    >
+                                                        {action.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {activeTab === 'moodle' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    {loadingMoodle ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'rgb(114,106,90)', fontSize: 14 }}>
+                            <Loader2 size={16} className="animate-spin" /> Loading Moodle data…
+                        </div>
+                    ) : !moodleData || !moodleData.linked ? (
+                        <div style={{ padding: 24, backgroundColor: 'rgba(245,103,5,0.04)', border: '1px solid rgba(245,103,5,0.15)', borderRadius: 12, textAlign: 'center' }}>
+                            <div style={{ fontSize: 32, marginBottom: 8 }}>🟠</div>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: '#230603', marginBottom: 6 }}>Not linked to Moodle</div>
+                            <div style={{ fontSize: 13, color: 'rgb(114,106,90)' }}>
+                                This student has no Moodle ID yet. Run a sync from the{' '}
+                                <a href="/dashboard/integrations" style={{ color: '#F56705', textDecoration: 'underline' }}>Integrations page</a>{' '}
+                                to import students from your Moodle instance.
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            {moodleData.lastSyncedAt && (
+                                <p style={{ margin: 0, fontSize: 12, color: 'rgb(160,155,145)' }}>
+                                    Last synced: {new Date(moodleData.lastSyncedAt).toLocaleString()} · Moodle User ID: {moodleData.moodleUserId}
+                                </p>
+                            )}
+
+                            {/* Grades per course */}
+                            {Object.keys(moodleData.grades ?? {}).length > 0 && (
+                                <div>
+                                    <h3 style={{ fontSize: 15, fontWeight: 700, color: '#230603', marginBottom: 12 }}>Grades</h3>
+                                    {Object.entries(moodleData.grades as Record<string, any[]>).map(([courseName, items]) => (
+                                        <div key={courseName} style={{ marginBottom: 16, border: '1px solid rgb(228,221,205)', borderRadius: 10, overflow: 'hidden' }}>
+                                            <div style={{ padding: '10px 14px', backgroundColor: 'rgba(245,103,5,0.05)', borderBottom: '1px solid rgb(228,221,205)', fontSize: 13, fontWeight: 700, color: '#c45200' }}>
+                                                {courseName}
+                                            </div>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                                                <thead>
+                                                    <tr style={{ backgroundColor: 'rgba(250,250,249,0.8)' }}>
+                                                        <th style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'rgb(114,106,90)' }}>Item</th>
+                                                        <th style={{ padding: '8px 14px', textAlign: 'center', fontWeight: 600, color: 'rgb(114,106,90)' }}>Grade</th>
+                                                        <th style={{ padding: '8px 14px', textAlign: 'center', fontWeight: 600, color: 'rgb(114,106,90)' }}>%</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {items.map((item: any, i: number) => {
+                                                        const pct = item.percentageFormatted ?? '-';
+                                                        const pctNum = parseFloat(pct);
+                                                        const isLow = !isNaN(pctNum) && pctNum < 50;
+                                                        return (
+                                                            <tr key={i} style={{ borderTop: i > 0 ? '1px solid rgba(228,221,205,0.5)' : undefined }}>
+                                                                <td style={{ padding: '8px 14px', color: '#230603' }}>{item.itemname || '(Overall)'}</td>
+                                                                <td style={{ padding: '8px 14px', textAlign: 'center', color: 'rgb(114,106,90)' }}>
+                                                                    {item.grade != null ? `${item.grade} / ${item.gradeMax}` : '-'}
+                                                                </td>
+                                                                <td style={{ padding: '8px 14px', textAlign: 'center' }}>
+                                                                    <span style={{
+                                                                        display: 'inline-block', padding: '2px 8px', borderRadius: 9999, fontSize: 12, fontWeight: 600,
+                                                                        backgroundColor: isLow ? 'rgba(220,38,38,0.08)' : 'rgba(5,128,80,0.08)',
+                                                                        color: isLow ? '#dc2626' : '#058050',
+                                                                    }}>
+                                                                        {pct}
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Assignments */}
+                            {(moodleData.assignments ?? []).length > 0 && (
+                                <div>
+                                    <h3 style={{ fontSize: 15, fontWeight: 700, color: '#230603', marginBottom: 12 }}>Assignments</h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        {moodleData.assignments.map((a: any) => {
+                                            const isOverdue = a.dueDate && new Date(a.dueDate) < new Date() && a.submissionStatus !== 'submitted';
+                                            const statusColor = a.submissionStatus === 'submitted' ? '#058050'
+                                                : a.submissionStatus === 'draft' ? '#92610a' : '#d32f2f';
+                                            const statusBg = a.submissionStatus === 'submitted' ? 'rgba(5,128,80,0.08)'
+                                                : a.submissionStatus === 'draft' ? 'rgba(251,191,36,0.10)' : 'rgba(211,47,47,0.07)';
+                                            return (
+                                                <div key={a.id} style={{ padding: '12px 14px', border: '1px solid rgb(228,221,205)', borderRadius: 9, backgroundColor: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontSize: 14, fontWeight: 600, color: '#230603' }}>{a.name}</div>
+                                                        {a.dueDate && (
+                                                            <div style={{ fontSize: 12, color: isOverdue ? '#d32f2f' : 'rgb(114,106,90)', marginTop: 2 }}>
+                                                                {isOverdue ? '⚠ Overdue · ' : ''}Due: {new Date(a.dueDate).toLocaleDateString()}
+                                                            </div>
+                                                        )}
+                                                        {a.grade != null && (
+                                                            <div style={{ fontSize: 12, color: 'rgb(114,106,90)', marginTop: 2 }}>
+                                                                Score: <strong>{a.grade}</strong>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 9999, fontSize: 12, fontWeight: 600, backgroundColor: statusBg, color: statusColor, whiteSpace: 'nowrap' }}>
+                                                        {a.submissionStatus === 'submitted' ? '✓ Submitted'
+                                                            : a.submissionStatus === 'draft' ? '✎ Draft'
+                                                            : a.submissionStatus ? a.submissionStatus
+                                                            : 'Not submitted'}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {Object.keys(moodleData.grades ?? {}).length === 0 && (moodleData.assignments ?? []).length === 0 && (
+                                <div style={{ padding: 20, textAlign: 'center', color: 'rgb(114,106,90)', fontSize: 13 }}>
+                                    No grade or assignment data available from Moodle yet.
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
             )}
         </div>

@@ -1,8 +1,8 @@
 'use server';
 
 import { db } from '@/db';
-import { schools, users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { schools, users, userSchools } from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 
@@ -15,7 +15,7 @@ function generateInviteCode() {
     return result;
 }
 
-export async function createSchoolAction(schoolName: string) {
+export async function createSchoolAction(schoolName: string, institutionType: 'k12' | 'university' = 'k12') {
     try {
         const session = await auth.api.getSession({
             headers: await headers()
@@ -37,6 +37,7 @@ export async function createSchoolAction(schoolName: string) {
             id: schoolId,
             name: schoolName,
             inviteCode: inviteCode,
+            institutionType: institutionType,
         }).returning();
 
         // 2. Attach the user to the school and set role to admin
@@ -45,7 +46,7 @@ export async function createSchoolAction(schoolName: string) {
             .where(eq(users.id, session.user.id));
 
         // 3. Mark the user as a member of this workspace
-        await db.insert(require('@/db/schema').userSchools).values({
+        await db.insert(userSchools).values({
             id: 'us_' + Math.random().toString(36).substr(2, 9),
             userId: session.user.id,
             schoolId: newSchool.id,
@@ -88,14 +89,14 @@ export async function joinSchoolAction(inviteCode: string) {
             .where(eq(users.id, session.user.id));
 
         // 3. Ensure they are in userSchools (upsert or ignore)
-        const existingMembership = await db.select().from(require('@/db/schema').userSchools)
-            .where(require('drizzle-orm').and(
-                require('drizzle-orm').eq(require('@/db/schema').userSchools.userId, session.user.id),
-                require('drizzle-orm').eq(require('@/db/schema').userSchools.schoolId, targetSchool.id)
+        const existingMembership = await db.select().from(userSchools)
+            .where(and(
+                eq(userSchools.userId, session.user.id),
+                eq(userSchools.schoolId, targetSchool.id)
             ));
-            
+
         if (existingMembership.length === 0) {
-            await db.insert(require('@/db/schema').userSchools).values({
+            await db.insert(userSchools).values({
                 id: 'us_' + Math.random().toString(36).substr(2, 9),
                 userId: session.user.id,
                 schoolId: targetSchool.id,
@@ -125,10 +126,10 @@ export async function switchWorkspaceAction(schoolId: string) {
         }
 
         // Verify the user is actually a member of this school
-        const membership = await db.select().from(require('@/db/schema').userSchools).where(
-            require('drizzle-orm').and(
-                require('drizzle-orm').eq(require('@/db/schema').userSchools.userId, session.user.id),
-                require('drizzle-orm').eq(require('@/db/schema').userSchools.schoolId, schoolId)
+        const membership = await db.select().from(userSchools).where(
+            and(
+                eq(userSchools.userId, session.user.id),
+                eq(userSchools.schoolId, schoolId)
             )
         );
 

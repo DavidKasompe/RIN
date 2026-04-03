@@ -49,7 +49,7 @@ export const auth = betterAuth({
 
     emailAndPassword: {
         enabled: true,
-        requireEmailVerification: true,
+        requireEmailVerification: false,
         async sendResetPassword({ user, url }: { user: any; url: string }) {
             const { Resend } = await import('resend');
             const resend = new Resend(process.env.RESEND_API_KEY!);
