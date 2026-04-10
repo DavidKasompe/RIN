@@ -39,6 +39,14 @@ export async function POST() {
 
         const { moodleUrl, moodleToken } = conn;
 
+        // Guard: ensure stored URL is valid before making any fetch calls
+        try {
+            const parsed = new URL(moodleUrl);
+            if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error();
+        } catch {
+            return NextResponse.json({ error: 'The saved Moodle URL is invalid. Please disconnect and reconnect with a valid URL (e.g. https://moodle.myschool.edu).' }, { status: 400 });
+        }
+
         // 1. Validate token & get site info
         await moodleCall(moodleUrl, moodleToken, 'core_webservice_get_site_info');
 

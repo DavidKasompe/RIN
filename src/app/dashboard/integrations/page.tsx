@@ -133,6 +133,19 @@ function MoodleCard() {
 
             {showForm && !connected && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {/* Setup guide */}
+                    <div style={{ backgroundColor: 'rgba(245,103,5,0.04)', border: '1px solid rgba(245,103,5,0.15)', borderRadius: 8, padding: '12px 14px' }}>
+                        <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: '#c45200' }}>📋 How to get your Moodle token</p>
+                        <ol style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: 'rgb(80,70,60)', lineHeight: 1.8 }}>
+                            <li>In Moodle, go to <strong>Site administration → Advanced features</strong> → tick <strong>Enable web services</strong> → Save</li>
+                            <li>Go to <strong>Site administration → Server → Web services → Manage protocols</strong> → Enable <strong>REST protocol</strong></li>
+                            <li>Go to <strong>Site administration → Server → Web services → Manage tokens</strong> → click <strong>Add</strong></li>
+                            <li>Select a user with admin/teacher rights, pick any service, click <strong>Save changes</strong></li>
+                            <li>Copy the token that appears and paste it below</li>
+                        </ol>
+                        <p style={{ margin: '8px 0 0', fontSize: 11, color: 'rgb(140,130,115)' }}>Your Moodle URL is the address you use to log in, e.g. <code style={{ backgroundColor: 'rgba(0,0,0,0.06)', padding: '1px 4px', borderRadius: 3 }}>https://moodle.myschool.edu</code></p>
+                    </div>
+
                     <input
                         type="url"
                         placeholder="Moodle URL (e.g. https://moodle.myschool.edu)"

@@ -50,6 +50,14 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Moodle URL and token are required' }, { status: 400 });
         }
 
+        // Validate URL format — must start with http:// or https://
+        try {
+            const parsed = new URL(moodleUrl.trim());
+            if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error();
+        } catch {
+            return NextResponse.json({ error: 'Invalid Moodle URL. It must start with https:// (e.g. https://moodle.myschool.edu)' }, { status: 400 });
+        }
+
         // Validate the token by hitting the Moodle API
         // If the URL is unreachable (network error) we save anyway with a warning.
         // Only hard-reject if Moodle explicitly refuses the token.
